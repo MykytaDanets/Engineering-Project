@@ -4,6 +4,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 
 const authRoutes = require('./routes/auth');
+const pantryRoutes = require('./routes/pantry');
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/pantry', pantryRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
