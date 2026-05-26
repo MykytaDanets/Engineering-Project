@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 
 const authRoutes = require('./routes/auth');
 const pantryRoutes = require('./routes/pantry');
+const recipesRoutes = require('./routes/recipes');
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/pantry', pantryRoutes);
+app.use('/api/recipes', recipesRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

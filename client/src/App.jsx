@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Pantry from './pages/Pantry';
+import Recipes from './pages/Recipes';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 60 } },
@@ -37,6 +38,10 @@ export default function App() {
             <Route
               path="/pantry"
               element={<ProtectedRoute><Pantry /></ProtectedRoute>}
+            />
+            <Route
+              path="/recipes"
+              element={<ProtectedRoute><Recipes /></ProtectedRoute>}
             />
           </Routes>
         </BrowserRouter>
