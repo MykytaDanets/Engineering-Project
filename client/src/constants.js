@@ -1,11 +1,11 @@
 export const CATEGORIES = [
-  'Produce',
+  'Fruits & Vegetables',
   'Dairy',
   'Meat & Fish',
-  'Grains & Pasta',
-  'Canned & Dry',
-  'Condiments',
-  'Beverages',
+  'Bread & Grains',
+  'Canned & Dry Goods',
+  'Sauces & Spices',
+  'Drinks',
   'Other',
 ];
 

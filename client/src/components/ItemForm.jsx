@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { CATEGORIES, UNITS } from '../constants';
 
-const EMPTY = { name: '', quantity: '', unit: 'pcs', category: 'Produce' };
+const EMPTY = { name: '', quantity: '', unit: 'pcs', category: CATEGORIES[0] };
+
+const inputBase = 'rounded-lg border bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 outline-none focus:ring-2 focus:ring-green-700 transition';
 
 export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
   const [form, setForm] = useState(initial ?? EMPTY);
@@ -35,21 +37,19 @@ export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Ingredient name</label>
+          <label className="text-xs font-medium text-gray-400">Ingredient name</label>
           <input
             name="name"
             value={form.name}
             onChange={handleChange}
             placeholder="e.g. Milk"
-            className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 ${
-              errors.name ? 'border-red-400 bg-red-50' : 'border-gray-300'
-            }`}
+            className={`${inputBase} ${errors.name ? 'border-red-500' : 'border-gray-700'}`}
           />
-          {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+          {errors.name && <p className="text-xs text-red-400">{errors.name}</p>}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Quantity</label>
+          <label className="text-xs font-medium text-gray-400">Quantity</label>
           <input
             name="quantity"
             type="number"
@@ -58,32 +58,30 @@ export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
             value={form.quantity}
             onChange={handleChange}
             placeholder="0"
-            className={`rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 ${
-              errors.quantity ? 'border-red-400 bg-red-50' : 'border-gray-300'
-            }`}
+            className={`${inputBase} ${errors.quantity ? 'border-red-500' : 'border-gray-700'}`}
           />
-          {errors.quantity && <p className="text-xs text-red-500">{errors.quantity}</p>}
+          {errors.quantity && <p className="text-xs text-red-400">{errors.quantity}</p>}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Unit</label>
+          <label className="text-xs font-medium text-gray-400">Unit</label>
           <select
             name="unit"
             value={form.unit}
             onChange={handleChange}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500"
+            className={`${inputBase} border-gray-700`}
           >
             {UNITS.map((u) => <option key={u}>{u}</option>)}
           </select>
         </div>
 
         <div className="col-span-2 flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Category</label>
+          <label className="text-xs font-medium text-gray-400">Category</label>
           <select
             name="category"
             value={form.category}
             onChange={handleChange}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500"
+            className={`${inputBase} border-gray-700`}
           >
             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
@@ -94,14 +92,14 @@ export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+          className="flex-1 rounded-lg bg-green-800 py-2 text-sm font-semibold text-green-100 hover:bg-green-700 disabled:opacity-50 transition"
         >
           {loading ? 'Saving…' : initial ? 'Save changes' : 'Add ingredient'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 transition"
         >
           Cancel
         </button>
