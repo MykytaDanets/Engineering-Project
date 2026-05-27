@@ -9,6 +9,15 @@ router.use(authMiddleware);
 
 const SPOONACULAR = 'https://api.spoonacular.com';
 
+function ingredientMatches(ingredientName, pantryItem) {
+  const normalize = (s) => s.toLowerCase().trim().replace(/s$/, '');
+  const words = ingredientName.toLowerCase().trim().split(/\s+/);
+  const lastWord = normalize(words[words.length - 1]);
+  const pantry = normalize(pantryItem);
+  
+  return lastWord === pantry || normalize(ingredientName) === pantry;
+}
+
 function spoonacularKey() {
   const key = process.env.SPOONACULAR_API_KEY;
   if (!key || key === 'your_spoonacular_api_key_here') {
@@ -40,15 +49,22 @@ router.get('/', async (req, res) => {
         apiKey,
         ingredients: ingredientNames.join(','),
         number: 12,
-        ranking: 2,       // minimise missing ingredients
+        ranking: 2,
         ignorePantry: false,
       },
     });
 
     const recipes = data.map((r) => {
-      const used = r.usedIngredientCount;
+      const missedIngredientNames = r.missedIngredients.map((i) => i.name);
+
+      const matchedPantryItems = ingredientNames.filter((pantryItem) =>
+        r.usedIngredients.some((used) => ingredientMatches(used.name, pantryItem))
+      );
+
+      const used = matchedPantryItems.length;
       const missed = r.missedIngredientCount;
       const total = used + missed;
+
       return {
         id: r.id,
         title: r.title,
@@ -56,12 +72,11 @@ router.get('/', async (req, res) => {
         usedIngredientCount: used,
         missedIngredientCount: missed,
         matchPercent: total > 0 ? Math.round((used / total) * 100) : 0,
-        missedIngredients: r.missedIngredients.map((i) => i.name),
-        usedIngredients: r.usedIngredients.map((i) => i.name),
+        missedIngredients: missedIngredientNames,
+        usedIngredients: matchedPantryItems,
       };
     });
 
-    // Sort highest match first
     recipes.sort((a, b) => b.matchPercent - a.matchPercent);
 
     cache.set(cacheKey, recipes);

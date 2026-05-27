@@ -42,6 +42,19 @@ function RecipeCard({ recipe, onSelect }) {
           )}
         </div>
 
+        {recipe.usedIngredients.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {recipe.usedIngredients.map((ing) => (
+              <span
+                key={ing}
+                className="rounded-full bg-green-900/40 border border-green-800 px-2 py-0.5 text-xs text-green-600"
+              >
+                {ing}
+              </span>
+            ))}
+          </div>
+        )}
+
         {recipe.missedIngredients.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {recipe.missedIngredients.map((ing) => (
