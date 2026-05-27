@@ -5,7 +5,7 @@ export default function RecipeModal({ recipeId, onClose }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['recipe-info', recipeId],
     queryFn: () => getRecipeInfo(recipeId),
-    staleTime: 1000 * 60 * 60,
+    staleTime: 3600000, // 1 hour
   });
 
   return (
