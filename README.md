@@ -1,6 +1,10 @@
 # Smart Grocery Planner
 
-A web app that matches recipes to the ingredients you already have at home.
+This is my engineering project. I built the Smart Grocery Planner to solve the personal problem of buying groceries and forgetting what to cook with them, aiming to reduce food waste.
+
+![Pantry Page](image.png)
+
+![Recipes Page](image-1.png)
 
 **Live demo:** https://engineering-project-sigma.vercel.app
 
@@ -78,21 +82,8 @@ Open http://localhost:9040
 
 ---
 
-## Project structure
+## License
 
-```
-├── client/              # React frontend
-│   └── src/
-│       ├── api/            # Axios instance + endpoint functions
-│       ├── components/     # NavBar, ItemForm, RecipeModal, InputField
-│       ├── context/        # AuthContext (login, register, logout)
-│       └── pages/          # Login, Register, Pantry, Recipes
-│
-└── server/              # Express backend
-    ├── middleware/         # JWT auth middleware
-    ├── models/             # Mongoose schemas (User, Pantry)
-    ├── routes/             # auth, pantry, recipes
-    └── utils/              # Response cache
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
