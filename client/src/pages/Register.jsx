@@ -4,39 +4,35 @@ import { useAuth } from '../context/AuthContext';
 import InputField from '../components/InputField';
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, isAuthLoading } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   function validate() {
-    const e = {};
-    if (!form.name.trim()) e.name = 'Name is required';
-    if (!form.email.trim()) e.email = 'Email is required';
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Enter a valid email';
-    if (!form.password) e.password = 'Password is required';
-    else if (form.password.length < 6) e.password = 'At least 6 characters';
-    if (form.confirm !== form.password) e.confirm = 'Passwords do not match';
-    return e;
+    const validationErrors = {};
+    if (!form.name.trim()) validationErrors.name = 'Name is required';
+    if (!form.email.trim()) validationErrors.email = 'Email is required';
+    else if (!/^\S+@\S+\.\S+$/.test(form.email)) validationErrors.email = 'Enter a valid email';
+    if (!form.password) validationErrors.password = 'Password is required';
+    else if (form.password.length < 6) validationErrors.password = 'At least 6 characters';
+    if (form.confirm !== form.password) validationErrors.confirm = 'Passwords do not match';
+    return validationErrors;
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const e2 = validate();
-    if (Object.keys(e2).length) { setErrors(e2); return; }
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length) { setErrors(fieldErrors); return; }
     setErrors({});
     setServerError('');
-    setLoading(true);
     try {
       await register(form.name, form.email, form.password);
       navigate('/pantry');
     } catch (err) {
       setServerError(err.response?.data?.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -100,10 +96,10 @@ export default function Register() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isAuthLoading}
             className="mt-2 rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-60"
           >
-            {loading ? 'Creating account…' : 'Create account'}
+            {isAuthLoading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
 

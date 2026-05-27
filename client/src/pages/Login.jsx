@@ -4,36 +4,32 @@ import { useAuth } from '../context/AuthContext';
 import InputField from '../components/InputField';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, isAuthLoading } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   function validate() {
-    const e = {};
-    if (!form.email.trim()) e.email = 'Email is required';
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Enter a valid email';
-    if (!form.password) e.password = 'Password is required';
-    return e;
+    const validationErrors = {};
+    if (!form.email.trim()) validationErrors.email = 'Email is required';
+    else if (!/^\S+@\S+\.\S+$/.test(form.email)) validationErrors.email = 'Enter a valid email';
+    if (!form.password) validationErrors.password = 'Password is required';
+    return validationErrors;
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const e2 = validate();
-    if (Object.keys(e2).length) { setErrors(e2); return; }
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length) { setErrors(fieldErrors); return; }
     setErrors({});
     setServerError('');
-    setLoading(true);
     try {
       await login(form.email, form.password);
       navigate('/pantry');
     } catch (err) {
       setServerError(err.response?.data?.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -77,10 +73,10 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isAuthLoading}
             className="mt-2 rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-60"
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {isAuthLoading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 

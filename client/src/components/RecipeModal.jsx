@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRecipeInfo } from '../api/recipes';
+import { ONE_HOUR } from '../constants';
 
 export default function RecipeModal({ recipeId, onClose }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['recipe-info', recipeId],
     queryFn: () => getRecipeInfo(recipeId),
-    staleTime: 3600000, // 1 hour
+    staleTime: ONE_HOUR,
   });
 
   return (

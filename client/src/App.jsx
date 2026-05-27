@@ -5,9 +5,10 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Pantry from './pages/Pantry';
 import Recipes from './pages/Recipes';
+import { ONE_HOUR } from './constants';
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 1000 * 60 * 60 } },
+  defaultOptions: { queries: { staleTime: ONE_HOUR } },
 });
 
 function ProtectedRoute({ children }) {

@@ -4,6 +4,13 @@ import NavBar from '../components/NavBar';
 import ItemForm from '../components/ItemForm';
 import { getPantryItems, addPantryItem, updatePantryItem, deletePantryItem } from '../api/pantry';
 
+function groupByCategory(items) {
+  return items.reduce((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+}
 
 export default function Pantry() {
   const qc = useQueryClient();
@@ -33,11 +40,7 @@ export default function Pantry() {
     onSuccess: invalidate,
   });
 
-  const grouped = items.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-  }, {});
+  const grouped = groupByCategory(items);
 
   return (
     <div className="min-h-screen bg-gray-950">

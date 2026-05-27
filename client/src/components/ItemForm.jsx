@@ -15,11 +15,11 @@ export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
   }, [initial]);
 
   function validate() {
-    const e = {};
-    if (!form.name.trim()) e.name = 'Name is required';
+    const validationErrors = {};
+    if (!form.name.trim()) validationErrors.name = 'Name is required';
     if (form.quantity === '' || isNaN(Number(form.quantity)) || Number(form.quantity) < 0)
-      e.quantity = 'Enter a valid quantity';
-    return e;
+      validationErrors.quantity = 'Enter a valid quantity';
+    return validationErrors;
   }
 
   function handleChange(e) {
@@ -28,8 +28,8 @@ export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    const e2 = validate();
-    if (Object.keys(e2).length) { setErrors(e2); return; }
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length) { setErrors(fieldErrors); return; }
     onSubmit({ ...form, quantity: Number(form.quantity) });
   }
 

@@ -10,3 +10,5 @@ export const CATEGORIES = [
 ];
 
 export const UNITS = ['pcs', 'g', 'kg', 'ml', 'L', 'tbsp', 'tsp', 'cup'];
+
+export const ONE_HOUR = 3600000;
