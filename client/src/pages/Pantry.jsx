@@ -12,6 +12,25 @@ function groupByCategory(items) {
   }, {});
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function daysUntil(date) {
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((new Date(date).getTime() - todayUtc) / DAY_MS);
+}
+
+function ExpiryBadge({ date }) {
+  if (!date) return null;
+  const days = daysUntil(date);
+  const [text, color] =
+    days < 0 ? ['Expired', 'bg-red-900/50 text-red-500'] :
+    days === 0 ? ['Expires today', 'bg-red-900/50 text-red-500'] :
+    days <= 3 ? [`${days}d left`, 'bg-yellow-900/50 text-yellow-600'] :
+                [new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }), 'bg-gray-800 text-gray-500'];
+  return <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${color}`}>{text}</span>;
+}
+
 export default function Pantry() {
   const qc = useQueryClient();
 
@@ -95,7 +114,13 @@ export default function Pantry() {
                   {editingItem?._id === item._id ? (
                     <div className="rounded-xl bg-gray-900 border border-gray-700 p-4">
                       <ItemForm
-                        initial={{ name: item.name, quantity: String(item.quantity), unit: item.unit, category: item.category }}
+                        initial={{
+                          name: item.name,
+                          quantity: String(item.quantity),
+                          unit: item.unit,
+                          category: item.category,
+                          expiryDate: item.expiryDate ? item.expiryDate.slice(0, 10) : '',
+                        }}
                         onSubmit={(data) => editMutation.mutate({ id: item._id, data })}
                         onCancel={() => setEditingItem(null)}
                         loading={editMutation.isPending}
@@ -106,6 +131,7 @@ export default function Pantry() {
                       <div>
                         <span className="text-sm font-medium text-gray-100">{item.name}</span>
                         <span className="ml-2 text-sm text-gray-500">{item.quantity} {item.unit}</span>
+                        <ExpiryBadge date={item.expiryDate} />
                       </div>
                       <div className="flex gap-2">
                         <button

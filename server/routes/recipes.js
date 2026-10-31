@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
+const { usageLimit } = require('../middleware/plan');
 const cache = require('../utils/cache');
 
 const router = express.Router();
@@ -45,8 +46,8 @@ function spoonacularKey() {
   return key;
 }
 
-// GET /api/recipes  – find recipes by pantry ingredients
-router.get('/', async (req, res) => {
+// GET /api/recipes
+router.get('/', usageLimit('searches'), async (req, res) => {
   try {
     const apiKey = spoonacularKey();
 
@@ -111,7 +112,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/recipes/:id/info  – full recipe detail
+// GET /api/recipes/:id/info
 router.get('/:id/info', async (req, res) => {
   try {
     const apiKey = spoonacularKey();

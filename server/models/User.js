@@ -20,6 +20,20 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters'],
     },
+
+    stripeCustomerId: { type: String, index: true, sparse: true },
+    stripeSubscriptionId: { type: String },
+    subscriptionStatus: { type: String, default: 'none' },
+    currentPeriodEnd: { type: Date },
+    cancelAtPeriodEnd: { type: Boolean, default: false },
+    graceUntil: { type: Date },
+
+    usage: {
+      searchesDay: { type: String, default: '' },//YYYY-MM-DD
+      searchesCount: { type: Number, default: 0 },
+      receiptsMonth: { type: String, default: '' },//YYYY-MM
+      receiptsCount: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

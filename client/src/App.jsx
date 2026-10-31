@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Pantry from './pages/Pantry';
 import Recipes from './pages/Recipes';
+import Pricing from './pages/Pricing';
+import BillingSuccess from './pages/BillingSuccess';
 import { ONE_HOUR } from './constants';
 
 const queryClient = new QueryClient({
@@ -43,6 +45,14 @@ export default function App() {
             <Route
               path="/recipes"
               element={<ProtectedRoute><Recipes /></ProtectedRoute>}
+            />
+            <Route
+              path="/pricing"
+              element={<ProtectedRoute><Pricing /></ProtectedRoute>}
+            />
+            <Route
+              path="/billing/success"
+              element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>}
             />
           </Routes>
         </BrowserRouter>

@@ -21,15 +21,25 @@ router.get('/', async (req, res) => {
   }
 });
 
+function parseExpiry(value) {
+  if (value === '' || value == null) return null;
+  const date = new Date(value);
+  return isNaN(date) ? undefined : date;
+}
+
 // POST /api/pantry/items
 router.post('/items', async (req, res) => {
   const { name, quantity, unit, category } = req.body;
   if (!name || quantity == null || !unit || !category) {
     return res.status(400).json({ message: 'All fields are required' });
   }
+  const expiryDate = parseExpiry(req.body.expiryDate);
+  if (expiryDate === undefined) {
+    return res.status(400).json({ message: 'Invalid expiry date' });
+  }
   try {
     const pantry = await getOrCreatePantry(req.userId);
-    pantry.items.push({ name, quantity, unit, category });
+    pantry.items.push({ name, quantity, unit, category, expiryDate });
     await pantry.save();
     const added = pantry.items[pantry.items.length - 1];
     res.status(201).json(added);
@@ -52,6 +62,11 @@ router.put('/items/:itemId', async (req, res) => {
     if (quantity != null) item.quantity = quantity;
     if (unit != null) item.unit = unit;
     if (category != null) item.category = category;
+    if (req.body.expiryDate !== undefined) {
+      const expiryDate = parseExpiry(req.body.expiryDate);
+      if (expiryDate === undefined) return res.status(400).json({ message: 'Invalid expiry date' });
+      item.expiryDate = expiryDate;
+    }
 
     await pantry.save();
     res.json(item);

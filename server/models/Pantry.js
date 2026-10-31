@@ -5,6 +5,7 @@ const itemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 0 },
   unit: { type: String, required: true, trim: true },
   category: { type: String, required: true, trim: true },
+  expiryDate: { type: Date, default: null },
 });
 
 const pantrySchema = new mongoose.Schema(

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import NavBar from '../components/NavBar';
 import RecipeCard from '../components/RecipeCard';
 import RecipeModal from '../components/RecipeModal';
@@ -8,17 +9,19 @@ import { ONE_HOUR } from '../constants';
 
 export default function Recipes() {
   const [selectedId, setSelectedId] = useState(null);
+  const qc = useQueryClient();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['recipes'],
-    queryFn: getRecipes,
+    queryFn: () => getRecipes().finally(() => qc.invalidateQueries({ queryKey: ['plan'] })),
     staleTime: ONE_HOUR,
-    retry: 1,
+    retry: (count, err) => !err?.response && count < 1,
   });
 
   const recipes = data?.recipes ?? [];
   const message = data?.message;
   const fromCache = data?.fromCache;
+  const limitReached = error?.response?.data?.code === 'LIMIT_REACHED';
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -47,7 +50,19 @@ export default function Recipes() {
           </div>
         )}
 
-        {isError && (
+        {isError && limitReached && (
+          <div className="rounded-2xl bg-gray-900 border border-green-900 p-6 text-center flex flex-col items-center gap-3">
+            <p className="text-sm font-medium text-gray-300">{error.response.data.message}</p>
+            <Link
+              to="/pricing"
+              className="rounded-lg bg-green-800 px-5 py-2 text-sm font-semibold text-green-100 hover:bg-green-700 transition"
+            >
+              See Premium
+            </Link>
+          </div>
+        )}
+
+        {isError && !limitReached && (
           <div className="rounded-2xl bg-red-500/10 border border-red-500/20 p-6 text-center">
             <p className="text-sm font-medium text-red-400">
               {error?.response?.data?.message || 'Failed to load recipes'}

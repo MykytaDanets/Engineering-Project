@@ -62,6 +62,9 @@ JWT_SECRET=any_long_random_string
 SPOONACULAR_API_KEY=your_key
 CLIENT_URL=http://localhost:9040
 PORT=5000
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PRICE_ID=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
 Start the server:

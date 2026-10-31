@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CATEGORIES, UNITS } from '../constants';
 
-const EMPTY = { name: '', quantity: '', unit: 'pcs', category: CATEGORIES[0] };
+const EMPTY = { name: '', quantity: '', unit: 'pcs', category: CATEGORIES[0], expiryDate: '' };
 
 const inputBase = 'rounded-lg border bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 outline-none focus:ring-2 focus:ring-green-700 transition';
 
@@ -85,6 +85,17 @@ export default function ItemForm({ initial, onSubmit, onCancel, loading }) {
           >
             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
+        </div>
+
+        <div className="col-span-2 flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-400">Expiry date <span className="text-gray-600">(optional)</span></label>
+          <input
+            name="expiryDate"
+            type="date"
+            value={form.expiryDate}
+            onChange={handleChange}
+            className={`${inputBase} border-gray-700 [color-scheme:dark]`}
+          />
         </div>
       </div>
 

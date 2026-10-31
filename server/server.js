@@ -6,15 +6,21 @@ const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth');
 const pantryRoutes = require('./routes/pantry');
 const recipesRoutes = require('./routes/recipes');
+const billingRoutes = require('./routes/billing');
+const webhookRoutes = require('./routes/webhook');
 
 const app = express();
 
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+
+app.use('/api/billing/webhook', webhookRoutes);
+
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/pantry', pantryRoutes);
 app.use('/api/recipes', recipesRoutes);
+app.use('/api/billing', billingRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
