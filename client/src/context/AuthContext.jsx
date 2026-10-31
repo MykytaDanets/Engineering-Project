@@ -15,7 +15,6 @@ export function AuthProvider({ children }) {
 
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  // login throws on failure — the calling component handles the error message
   const login = async (email, password) => {
     setIsAuthLoading(true);
     try {
@@ -46,7 +45,6 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  // Cross-tab sync — if the user logs out in another tab, log out here too
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'user' && !e.newValue) setUser(null);

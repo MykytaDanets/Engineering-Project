@@ -26,41 +26,44 @@ async function requirePremium(req, res, next) {
   }
 }
 
-function usageLimit(kind) {
+async function consumeUsage(user, kind) {
+  if (isPremium(user)) return true;
+
   const { period, periodKey, countKey } = USAGE[kind];
   const periodField = `usage.${periodKey}`;
   const countField = `usage.${countKey}`;
-  const limit = FREE_LIMITS[kind];
 
+  const current = period();
+  await User.updateOne(
+    { _id: user._id, [periodField]: { $ne: current } },
+    { $set: { [periodField]: current, [countField]: 0 } }
+  );
+
+  const updated = await User.findOneAndUpdate(
+    { _id: user._id, [countField]: { $lt: FREE_LIMITS[kind] } },
+    { $inc: { [countField]: 1 } },
+    { returnDocument: 'after' }
+  );
+  return Boolean(updated);
+}
+
+function limitReached(kind) {
+  const limit = FREE_LIMITS[kind];
+  const resetText = kind === 'searches' ? 'tomorrow' : 'next month';
+  return {
+    message: `You have used all ${limit} free ${kind} — they reset ${resetText}. Upgrade to Premium for unlimited ${kind}.`,
+    code: 'LIMIT_REACHED',
+    kind,
+    limit,
+  };
+}
+
+function usageLimit(kind) {
   return async (req, res, next) => {
     try {
       const user = await loadUser(req, res);
       if (!user) return;
-      if (isPremium(user)) return next();
-
-      const current = period();
-      await User.updateOne(
-        { _id: user._id, [periodField]: { $ne: current } },
-        { $set: { [periodField]: current, [countField]: 0 } }
-      );
-
-      const updated = await User.findOneAndUpdate(
-        { _id: user._id, [countField]: { $lt: limit } },
-        { $inc: { [countField]: 1 } },
-        { returnDocument: 'after' }
-      );
-
-      if (!updated) {
-        const resetText = kind === 'searches' ? 'tomorrow' : 'next month';
-        return res.status(429).json({
-          message: `You have used all ${limit} free ${kind} — they reset ${resetText}. Upgrade to Premium for unlimited ${kind}.`,
-          code: 'LIMIT_REACHED',
-          kind,
-          limit,
-        });
-      }
-
-      req.user = updated;
+      if (!(await consumeUsage(user, kind))) return res.status(429).json(limitReached(kind));
       next();
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -68,4 +71,4 @@ function usageLimit(kind) {
   };
 }
 
-module.exports = { requirePremium, usageLimit };
+module.exports = { requirePremium, usageLimit, consumeUsage, limitReached };

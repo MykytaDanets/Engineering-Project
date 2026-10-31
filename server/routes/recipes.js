@@ -2,7 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
-const { usageLimit } = require('../middleware/plan');
+const User = require('../models/User');
+const { consumeUsage, limitReached } = require('../middleware/plan');
 const cache = require('../utils/cache');
 
 const router = express.Router();
@@ -47,7 +48,7 @@ function spoonacularKey() {
 }
 
 // GET /api/recipes
-router.get('/', usageLimit('searches'), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const apiKey = spoonacularKey();
 
@@ -63,6 +64,12 @@ router.get('/', usageLimit('searches'), async (req, res) => {
 
     const cached = cache.get(cacheKey);
     if (cached) return res.json({ recipes: cached, fromCache: true });
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!(await consumeUsage(user, 'searches'))) {
+      return res.status(429).json(limitReached('searches'));
+    }
 
     const { data } = await axios.get(`${SPOONACULAR}/recipes/findByIngredients`, {
       params: {
