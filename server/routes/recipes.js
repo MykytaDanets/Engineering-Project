@@ -5,26 +5,12 @@ const authMiddleware = require('../middleware/auth');
 const User = require('../models/User');
 const { consumeUsage, limitReached } = require('../middleware/plan');
 const cache = require('../utils/cache');
+const { levenshtein } = require('../utils/text');
 
 const router = express.Router();
 router.use(authMiddleware);
 
 const SPOONACULAR = 'https://api.spoonacular.com';
-
-function levenshtein(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    dp[i][0] = i;
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[m][n];
-}
 
 function ingredientMatches(ingredientName, pantryItem) {
   const normalize = (s) => s.toLowerCase().trim().replace(/s$/, '');

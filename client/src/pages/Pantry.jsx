@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import NavBar from '../components/NavBar';
 import ItemForm from '../components/ItemForm';
@@ -80,12 +81,20 @@ export default function Pantry() {
             )}
           </div>
         ) : (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 rounded-xl bg-green-800 px-5 py-2.5 text-sm font-semibold text-green-100 hover:bg-green-700 w-fit transition"
-          >
-            <span className="text-base leading-none">+</span> Add ingredient
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 rounded-xl bg-green-800 px-5 py-2.5 text-sm font-semibold text-green-100 hover:bg-green-700 w-fit transition"
+            >
+              <span className="text-base leading-none">+</span> Add ingredient
+            </button>
+            <Link
+              to="/scan"
+              className="rounded-xl border border-gray-700 px-5 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition"
+            >
+              Scan receipt
+            </Link>
+          </div>
         )}
 
         {isLoading && (

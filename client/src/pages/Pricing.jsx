@@ -4,13 +4,13 @@ import { usePlan, useCheckout, usePortal, useCancelSubscription } from '../hooks
 
 const FEATURES = [
   ['Account, pantry management, recipe details', '✓', '✓'],
-  ['AI receipt scanning', '3 receipts / month', 'Unlimited'],
+  ['AI receipt scanning', '3 AI scans / month, then unlimited basic scans', 'Unlimited AI scans'],
   ['Recipe search ranked by pantry match', '10 searches / day', 'Unlimited'],
   ['Expiry dates on pantry items', 'Shown in pantry', '“Use it up” recipes + email reminders'],
-  ['Weekly meal planner', '—', '✓'],
-  ['Automatic shopping list', '—', '✓'],
-  ['In-store shopping mode (works offline)', '—', '✓'],
-  ['Shared household pantry & list', '—', 'Up to 6 members, live sync'],
+  ['Weekly meal planner', '–', '✓'],
+  ['Automatic shopping list', '–', '✓'],
+  ['In-store shopping mode (works offline)', '–', '✓'],
+  ['Shared household pantry & list', '–', 'Up to 6 members, live sync'],
   ['Advertising', 'Consent-based ads', 'No ads'],
 ];
 
@@ -43,7 +43,7 @@ export default function Pricing() {
 
         {params.get('canceled') && (
           <div className="rounded-xl bg-gray-900 border border-gray-800 px-4 py-3 text-sm text-gray-400">
-            Checkout was cancelled — you have not been charged.
+            Checkout was cancelled – you have not been charged.
           </div>
         )}
 
@@ -55,7 +55,7 @@ export default function Pricing() {
 
         {plan?.graceUntil && plan.subscriptionStatus === 'past_due' && (
           <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 px-4 py-3 text-sm text-yellow-500">
-            Your last payment failed. Premium stays active until {formatDate(plan.graceUntil)} — update your card to keep it.
+            Your last payment failed. Premium stays active until {formatDate(plan.graceUntil)} – update your card to keep it.
           </div>
         )}
 
@@ -139,7 +139,7 @@ export default function Pricing() {
             </div>
             {checkout.isError && <p className="text-xs text-red-400">{errorText(checkout)}</p>}
             {portal.isError && <p className="text-xs text-red-400">{errorText(portal)}</p>}
-            <p className="text-xs text-gray-600">Payments run in Stripe test mode — no real money is taken.</p>
+            <p className="text-xs text-gray-600">Payments run in Stripe test mode – no real money is taken.</p>
           </div>
         )}
       </main>

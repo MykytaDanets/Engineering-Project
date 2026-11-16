@@ -47,11 +47,20 @@ async function consumeUsage(user, kind) {
   return Boolean(updated);
 }
 
+async function refundUsage(user, kind) {
+  if (isPremium(user)) return;
+  const { period, periodKey, countKey } = USAGE[kind];
+  await User.updateOne(
+    { _id: user._id, [`usage.${periodKey}`]: period(), [`usage.${countKey}`]: { $gt: 0 } },
+    { $inc: { [`usage.${countKey}`]: -1 } }
+  );
+}
+
 function limitReached(kind) {
   const limit = FREE_LIMITS[kind];
   const resetText = kind === 'searches' ? 'tomorrow' : 'next month';
   return {
-    message: `You have used all ${limit} free ${kind} — they reset ${resetText}. Upgrade to Premium for unlimited ${kind}.`,
+    message: `You have used all ${limit} free ${kind} – they reset ${resetText}. Upgrade to Premium for unlimited ${kind}.`,
     code: 'LIMIT_REACHED',
     kind,
     limit,
@@ -71,4 +80,4 @@ function usageLimit(kind) {
   };
 }
 
-module.exports = { requirePremium, usageLimit, consumeUsage, limitReached };
+module.exports = { requirePremium, usageLimit, consumeUsage, refundUsage, limitReached };

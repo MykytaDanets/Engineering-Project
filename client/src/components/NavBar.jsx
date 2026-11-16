@@ -28,6 +28,7 @@ export default function NavBar() {
         <div className="flex items-center gap-1">
           <span className="mr-3 text-sm font-bold text-green-700">Pantry</span>
           <NavLink to="/pantry" className={link}>My Pantry</NavLink>
+          <NavLink to="/scan" className={link}>Scan</NavLink>
           <NavLink to="/recipes" className={link}>Recipes</NavLink>
           <NavLink to="/pricing" className={link}>{isPremium ? 'Plan' : 'Upgrade'}</NavLink>
         </div>

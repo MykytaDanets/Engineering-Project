@@ -71,7 +71,7 @@ router.post('/portal', async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.stripeCustomerId) {
-      return res.status(400).json({ message: 'No billing account yet — upgrade first.' });
+      return res.status(400).json({ message: 'No billing account yet – upgrade first.' });
     }
 
     const params = {
