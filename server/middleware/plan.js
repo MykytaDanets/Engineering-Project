@@ -67,17 +67,4 @@ function limitReached(kind) {
   };
 }
 
-function usageLimit(kind) {
-  return async (req, res, next) => {
-    try {
-      const user = await loadUser(req, res);
-      if (!user) return;
-      if (!(await consumeUsage(user, kind))) return res.status(429).json(limitReached(kind));
-      next();
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  };
-}
-
-module.exports = { requirePremium, usageLimit, consumeUsage, refundUsage, limitReached };
+module.exports = { requirePremium, consumeUsage, refundUsage, limitReached };

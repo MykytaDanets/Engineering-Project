@@ -8,6 +8,8 @@ import Recipes from './pages/Recipes';
 import Pricing from './pages/Pricing';
 import BillingSuccess from './pages/BillingSuccess';
 import ScanReceipt from './pages/ScanReceipt';
+import Planner from './pages/Planner';
+import Shopping from './pages/Shopping';
 import { ONE_HOUR } from './constants';
 
 const queryClient = new QueryClient({
@@ -50,6 +52,14 @@ export default function App() {
             <Route
               path="/scan"
               element={<ProtectedRoute><ScanReceipt /></ProtectedRoute>}
+            />
+            <Route
+              path="/planner"
+              element={<ProtectedRoute><Planner /></ProtectedRoute>}
+            />
+            <Route
+              path="/shopping"
+              element={<ProtectedRoute><Shopping /></ProtectedRoute>}
             />
             <Route
               path="/pricing"

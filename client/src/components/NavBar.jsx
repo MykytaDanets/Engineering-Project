@@ -25,12 +25,14 @@ export default function NavBar() {
   return (
     <header className="bg-gray-900 border-b border-gray-800 px-6 py-3">
       <div className="mx-auto max-w-2xl flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap">
           <span className="mr-3 text-sm font-bold text-green-700">Pantry</span>
           <NavLink to="/pantry" className={link}>My Pantry</NavLink>
           <NavLink to="/scan" className={link}>Scan</NavLink>
           <NavLink to="/recipes" className={link}>Recipes</NavLink>
-          <NavLink to="/pricing" className={link}>{isPremium ? 'Plan' : 'Upgrade'}</NavLink>
+          <NavLink to="/planner" className={link}>Planner</NavLink>
+          <NavLink to="/shopping" className={link}>Shopping</NavLink>
+          <NavLink to="/pricing" className={link}>{isPremium ? 'Subscription' : 'Upgrade'}</NavLink>
         </div>
         <div className="flex items-center gap-3">
           {isPremium ? (

@@ -13,4 +13,6 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
-module.exports = { levenshtein };
+const singular = (s) => s.toLowerCase().trim().replace(/(o|sh|ch|x|ss)es$/, '$1').replace(/([^s])s$/, '$1');
+
+module.exports = { levenshtein, singular };

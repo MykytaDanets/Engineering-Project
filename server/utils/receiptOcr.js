@@ -127,4 +127,4 @@ async function runOcr(buffer) {
   }
 }
 
-module.exports = { readReceiptWithOcr, parseReceiptText };
+module.exports = { readReceiptWithOcr };

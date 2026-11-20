@@ -1,143 +1,86 @@
 const express = require('express');
-const axios = require('axios');
 const Pantry = require('../models/Pantry');
-const authMiddleware = require('../middleware/auth');
 const User = require('../models/User');
-const { consumeUsage, limitReached } = require('../middleware/plan');
-const cache = require('../utils/cache');
-const { levenshtein } = require('../utils/text');
+const authMiddleware = require('../middleware/auth');
+const { getRecipe, spoonacularError } = require('../utils/spoonacular');
+const { candidateRecipes, LimitError } = require('../utils/recipeSearch');
+const { rankRecipes, cookRecipe } = require('../utils/matching');
 
 const router = express.Router();
 router.use(authMiddleware);
 
-const SPOONACULAR = 'https://api.spoonacular.com';
+const MAX_SERVINGS = 50;
 
-function ingredientMatches(ingredientName, pantryItem) {
-  const normalize = (s) => s.toLowerCase().trim().replace(/s$/, '');
-  const words = ingredientName.toLowerCase().trim().split(/\s+/);
-  const lastWord = normalize(words[words.length - 1]);
-  const pantry = normalize(pantryItem);
-
-  if (lastWord === pantry || normalize(ingredientName) === pantry) return true;
-
-  if (lastWord.length >= 5 && pantry.length >= 5 && levenshtein(lastWord, pantry) <= 1) return true;
-
-  return false;
+function sendError(res, err) {
+  if (err instanceof LimitError) return res.status(429).json(err.body);
+  const { status, message } = spoonacularError(err);
+  res.status(status).json({ message });
 }
 
-function spoonacularKey() {
-  const key = process.env.SPOONACULAR_API_KEY;
-  if (!key || key === 'your_spoonacular_api_key_here') {
-    throw new Error('SPOONACULAR_API_KEY is not configured in .env');
-  }
-  return key;
+function validId(req, res) {
+  if (/^\d+$/.test(req.params.id)) return true;
+  res.status(400).json({ message: 'Invalid recipe id' });
+  return false;
 }
 
 // GET /api/recipes
 router.get('/', async (req, res) => {
   try {
-    const apiKey = spoonacularKey();
-
     const pantry = await Pantry.findOne({ userId: req.userId });
     const items = pantry?.items ?? [];
-
     if (items.length === 0) {
       return res.json({ recipes: [], message: 'Add ingredients to your pantry first.' });
     }
 
-    const ingredientNames = items.map((i) => i.name).sort();
-    const cacheKey = `recipes:${ingredientNames.join(',')}`;
-
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json({ recipes: cached, fromCache: true });
-
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (!(await consumeUsage(user, 'searches'))) {
-      return res.status(429).json(limitReached('searches'));
-    }
 
-    const { data } = await axios.get(`${SPOONACULAR}/recipes/findByIngredients`, {
-      params: {
-        apiKey,
-        ingredients: ingredientNames.join(','),
-        number: 12,
-        ranking: 2,
-        ignorePantry: false,
-      },
-    });
-
-    const recipes = data.map((r) => {
-      const missedIngredientNames = r.missedIngredients.map((i) => i.name);
-
-      const matchedPantryItems = ingredientNames.filter((pantryItem) =>
-        r.usedIngredients.some((used) => ingredientMatches(used.name, pantryItem))
-      );
-
-      const used = matchedPantryItems.length;
-      const missed = r.missedIngredientCount;
-      const total = used + missed;
-
-      return {
-        id: r.id,
-        title: r.title,
-        image: r.image,
-        usedIngredientCount: used,
-        missedIngredientCount: missed,
-        matchPercent: total > 0 ? Math.round((used / total) * 100) : 0,
-        missedIngredients: missedIngredientNames,
-        usedIngredients: matchedPantryItems,
-      };
-    });
-
-    recipes.sort((a, b) => b.matchPercent - a.matchPercent);
-
-    cache.set(cacheKey, recipes);
-    res.json({ recipes });
+    const { recipes, fromCache } = await candidateRecipes(user, items);
+    res.json({ recipes: rankRecipes(recipes, items), fromCache });
   } catch (err) {
-    if (err.message.includes('SPOONACULAR_API_KEY')) {
-      return res.status(503).json({ message: err.message });
-    }
-    if (err.response?.status === 401 || err.response?.status === 402) {
-      return res.status(503).json({ message: 'Invalid or exhausted Spoonacular API key.' });
-    }
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 });
 
 // GET /api/recipes/:id/info
 router.get('/:id/info', async (req, res) => {
+  if (!validId(req, res)) return;
   try {
-    const apiKey = spoonacularKey();
-    const { id } = req.params;
-    const cacheKey = `recipe-info:${id}`;
-
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
-
-    const { data } = await axios.get(`${SPOONACULAR}/recipes/${id}/information`, {
-      params: { apiKey, includeNutrition: false },
+    const recipe = await getRecipe(req.params.id);
+    res.json({
+      id: recipe.id,
+      title: recipe.title,
+      image: recipe.image,
+      readyInMinutes: recipe.readyInMinutes,
+      servings: recipe.servings,
+      sourceUrl: recipe.sourceUrl,
+      summary: recipe.summary,
+      ingredients: recipe.ingredients.map((i) => i.original),
+      instructions: recipe.instructions,
     });
-
-    const info = {
-      id: data.id,
-      title: data.title,
-      image: data.image,
-      readyInMinutes: data.readyInMinutes,
-      servings: data.servings,
-      sourceUrl: data.sourceUrl,
-      summary: data.summary?.replace(/<[^>]*>/g, '') ?? '',
-      ingredients: data.extendedIngredients?.map((i) => i.original) ?? [],
-      instructions: data.instructions?.replace(/<[^>]*>/g, '') ?? '',
-    };
-
-    cache.set(cacheKey, info);
-    res.json(info);
   } catch (err) {
-    if (err.message.includes('SPOONACULAR_API_KEY')) {
-      return res.status(503).json({ message: err.message });
-    }
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
+  }
+});
+
+// POST /api/recipes/:id/cook
+router.post('/:id/cook', async (req, res) => {
+  if (!validId(req, res)) return;
+  const servings = Number(req.body.servings);
+  if (!(servings >= 1 && servings <= MAX_SERVINGS)) {
+    return res.status(400).json({ message: `Servings must be between 1 and ${MAX_SERVINGS}` });
+  }
+
+  try {
+    const pantry = await Pantry.findOne({ userId: req.userId });
+    if (!pantry?.items.length) return res.status(400).json({ message: 'Your pantry is empty.' });
+
+    const recipe = await getRecipe(req.params.id);
+    const result = cookRecipe(recipe, servings, pantry);
+    await pantry.save();
+    res.json(result);
+  } catch (err) {
+    sendError(res, err);
   }
 });
 

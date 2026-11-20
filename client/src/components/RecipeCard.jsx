@@ -10,6 +10,23 @@ function MatchBadge({ percent }) {
   );
 }
 
+const CHIP_STYLES = {
+  have: 'bg-green-900/40 border-green-800 text-green-600',
+  partial: 'bg-yellow-900/30 border-yellow-800 text-yellow-600',
+  missing: 'bg-red-500/10 border-red-500/20 text-red-400',
+};
+
+function Chips({ names, kind }) {
+  if (!names.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {names.map((name) => (
+        <span key={name} className={`rounded-full border px-2 py-0.5 text-xs ${CHIP_STYLES[kind]}`}>{name}</span>
+      ))}
+    </div>
+  );
+}
+
 export default function RecipeCard({ recipe, onSelect }) {
   return (
     <button
@@ -29,38 +46,22 @@ export default function RecipeCard({ recipe, onSelect }) {
           <MatchBadge percent={recipe.matchPercent} />
         </div>
 
-        <div className="flex gap-3 text-xs">
-          <span className="text-green-700">✓ {recipe.usedIngredientCount} in pantry</span>
-          {recipe.missedIngredientCount > 0 && (
-            <span className="text-red-400">✗ {recipe.missedIngredientCount} missing</span>
-          )}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          <span className="text-green-700">✓ {recipe.have.length} in pantry</span>
+          {recipe.partial.length > 0 && <span className="text-yellow-600">~ {recipe.partial.length} not enough</span>}
+          {recipe.missing.length > 0 && <span className="text-red-400">✗ {recipe.missing.length} missing</span>}
+          {recipe.readyInMinutes && <span className="text-gray-500">{recipe.readyInMinutes} min</span>}
         </div>
 
-        {recipe.usedIngredients.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {recipe.usedIngredients.map((ing) => (
-              <span
-                key={ing}
-                className="rounded-full bg-green-900/40 border border-green-800 px-2 py-0.5 text-xs text-green-600"
-              >
-                {ing}
-              </span>
-            ))}
-          </div>
+        {recipe.expiring.length > 0 && (
+          <span className="w-fit rounded-full bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 text-xs text-yellow-500">
+            Uses {recipe.expiring.length} expiring: {recipe.expiring.join(', ')}
+          </span>
         )}
 
-        {recipe.missedIngredients.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {recipe.missedIngredients.map((ing) => (
-              <span
-                key={ing}
-                className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-xs text-red-400"
-              >
-                {ing}
-              </span>
-            ))}
-          </div>
-        )}
+        <Chips names={recipe.have} kind="have" />
+        <Chips names={recipe.partial} kind="partial" />
+        <Chips names={recipe.missing} kind="missing" />
       </div>
     </button>
   );

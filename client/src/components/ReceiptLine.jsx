@@ -17,7 +17,7 @@ export default function ReceiptLine({ line, onChange }) {
           type="checkbox"
           checked={line.add}
           onChange={set('add')}
-          className="h-4 w-4 accent-green-700"
+          className="h-4 w-4 accent-green-700 [color-scheme:dark]"
           aria-label={`Add ${line.name} to pantry`}
         />
         <span className="flex-1 truncate font-mono text-xs text-gray-500">{line.text}</span>
@@ -27,7 +27,7 @@ export default function ReceiptLine({ line, onChange }) {
         {line.source === 'similar' && (
           <span className="rounded-full bg-yellow-900/50 px-2 py-0.5 text-xs text-yellow-600">Guessed</span>
         )}
-        <span className="text-sm text-gray-400">{line.price.toFixed(2)}</span>
+        {line.price != null && <span className="text-sm text-gray-400">{line.price.toFixed(2)}</span>}
       </div>
 
       {line.add && (
@@ -62,7 +62,7 @@ export default function ReceiptLine({ line, onChange }) {
         </div>
       )}
 
-      {line.warnings.length > 0 && (
+      {line.warnings?.length > 0 && (
         <p className="text-xs text-yellow-600">{line.warnings.join(' · ')}</p>
       )}
     </div>

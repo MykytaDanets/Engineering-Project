@@ -3,22 +3,20 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import NavBar from '../components/NavBar';
 import ItemForm from '../components/ItemForm';
+import ExpiryAlert from '../components/ExpiryAlert';
 import { getPantryItems, addPantryItem, updatePantryItem, deletePantryItem } from '../api/pantry';
+import { formatQuantity, capitalize, daysUntil } from '../utils/format';
+
+const expiryTime = (item) => (item.expiryDate ? new Date(item.expiryDate).getTime() : Infinity);
 
 function groupByCategory(items) {
-  return items.reduce((acc, item) => {
+  const groups = items.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {});
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function daysUntil(date) {
-  const now = new Date();
-  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((new Date(date).getTime() - todayUtc) / DAY_MS);
+  Object.values(groups).forEach((list) => list.sort((a, b) => expiryTime(a) - expiryTime(b)));
+  return groups;
 }
 
 function ExpiryBadge({ date }) {
@@ -105,6 +103,8 @@ export default function Pantry() {
           <p className="text-sm text-red-400 text-center py-8">Failed to load pantry. Check your connection.</p>
         )}
 
+        <ExpiryAlert items={items} />
+
         {!isLoading && !isError && items.length === 0 && (
           <div className="rounded-2xl bg-gray-900 border border-gray-800 p-10 text-center">
             <p className="font-medium text-gray-300">Your pantry is empty</p>
@@ -138,8 +138,8 @@ export default function Pantry() {
                   ) : (
                     <div className="flex items-center justify-between rounded-xl bg-gray-900 border border-gray-800 px-4 py-3 hover:border-gray-700 transition">
                       <div>
-                        <span className="text-sm font-medium text-gray-100">{item.name}</span>
-                        <span className="ml-2 text-sm text-gray-500">{item.quantity} {item.unit}</span>
+                        <span className="text-sm font-medium text-gray-100">{capitalize(item.name)}</span>
+                        <span className="ml-2 text-sm text-gray-500">{formatQuantity(item.quantity, item.unit)}</span>
                         <ExpiryBadge date={item.expiryDate} />
                       </div>
                       <div className="flex gap-2">

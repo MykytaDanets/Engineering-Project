@@ -9,6 +9,8 @@ const recipesRoutes = require('./routes/recipes');
 const billingRoutes = require('./routes/billing');
 const webhookRoutes = require('./routes/webhook');
 const receiptsRoutes = require('./routes/receipts');
+const plannerRoutes = require('./routes/planner');
+const shoppingRoutes = require('./routes/shopping');
 
 const app = express();
 
@@ -23,6 +25,8 @@ app.use('/api/pantry', pantryRoutes);
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/receipts', receiptsRoutes);
+app.use('/api/planner', plannerRoutes);
+app.use('/api/shopping', shoppingRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRecipeInfo } from '../api/recipes';
 import { ONE_HOUR } from '../constants';
+import RecipeActions from './RecipeActions';
 
 export default function RecipeModal({ recipeId, onClose }) {
   const { data, isLoading, isError } = useQuery({
@@ -84,6 +85,8 @@ export default function RecipeModal({ recipeId, onClose }) {
                   </p>
                 </div>
               )}
+
+              <RecipeActions recipe={data} />
 
               {data.sourceUrl && (
                 <a

@@ -75,6 +75,24 @@ router.put('/items/:itemId', async (req, res) => {
   }
 });
 
+// POST /api/pantry/items/remove
+router.post('/items/remove', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ message: 'No items selected' });
+  try {
+    const pantry = await Pantry.findOne({ userId: req.userId });
+    if (!pantry) return res.status(404).json({ message: 'Pantry not found' });
+
+    const remove = new Set(ids.map(String));
+    const before = pantry.items.length;
+    pantry.items = pantry.items.filter((i) => !remove.has(i._id.toString()));
+    await pantry.save();
+    res.json({ removed: before - pantry.items.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // DELETE /api/pantry/items/:itemId
 router.delete('/items/:itemId', async (req, res) => {
   try {

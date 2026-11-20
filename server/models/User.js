@@ -28,6 +28,12 @@ const userSchema = new mongoose.Schema(
     cancelAtPeriodEnd: { type: Boolean, default: false },
     graceUntil: { type: Date },
 
+    preferences: {
+      diet: { type: String, default: '' },
+      intolerances: { type: [String], default: [] },
+      servings: { type: Number, default: 2, min: 1, max: 20 },
+    },
+
     usage: {
       searchesDay: { type: String, default: '' },//YYYY-MM-DD
       searchesCount: { type: Number, default: 0 },

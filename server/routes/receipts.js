@@ -5,7 +5,7 @@ const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
 const { consumeUsage, refundUsage } = require('../middleware/plan');
 const { readReceipt, prepareReceipt, learnCorrections } = require('../utils/receipt');
-const { CATEGORIES, UNITS } = require('../config/pantry');
+const { validateItem } = require('../utils/pantryItem');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -67,17 +67,6 @@ router.post('/scan', uploadPhoto, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-function validateItem(item) {
-  const name = String(item.name ?? '').trim();
-  const quantity = Number(item.quantity);
-  if (!name) return 'Every item needs a name';
-  if (!(quantity >= 0)) return `Invalid quantity for "${name}"`;
-  if (!UNITS.includes(item.unit)) return `Invalid unit for "${name}"`;
-  if (!CATEGORIES.includes(item.category)) return `Invalid category for "${name}"`;
-  if (item.expiryDate && isNaN(new Date(item.expiryDate))) return `Invalid expiry date for "${name}"`;
-  return null;
-}
 
 // POST /api/receipts/confirm
 router.post('/confirm', async (req, res) => {
