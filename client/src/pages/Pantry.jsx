@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
 import NavBar from '../components/NavBar';
 import ItemForm from '../components/ItemForm';
 import ExpiryAlert from '../components/ExpiryAlert';
+import { useAuth } from '../context/AuthContext';
+import { useOnline } from '../hooks/useOnline';
 import { getPantryItems, addPantryItem, updatePantryItem, deletePantryItem } from '../api/pantry';
+import { cachedFetch } from '../offline/cache';
+import { db } from '../offline/db';
 import { formatQuantity, capitalize, daysUntil } from '../utils/format';
+
+const pendingPantryItems = (userId) =>
+  db.outbox.where('userId').equals(userId).toArray()
+    .then((rows) => rows.filter((r) => r.op.type === 'toPantry').flatMap((r) => r.op.items.filter((i) => i.add)));
 
 const expiryTime = (item) => (item.expiryDate ? new Date(item.expiryDate).getTime() : Infinity);
 
@@ -32,14 +41,18 @@ function ExpiryBadge({ date }) {
 
 export default function Pantry() {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const online = useOnline();
 
   const [showAdd, setShowAdd] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
   const { data: items = [], isLoading, isError } = useQuery({
     queryKey: ['pantry'],
-    queryFn: getPantryItems,
+    queryFn: () => cachedFetch(`pantry:${user.id}`, getPantryItems),
+    networkMode: 'always',
   });
+  const pending = useLiveQuery(() => pendingPantryItems(user.id), [user.id], []);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['pantry'] });
 
@@ -66,7 +79,11 @@ export default function Pantry() {
 
       <main className="mx-auto max-w-2xl px-6 py-6 flex flex-col gap-6">
 
-        {showAdd ? (
+        {!online ? (
+          <p className="rounded-lg border border-yellow-900 bg-yellow-950/40 px-3 py-2 text-xs text-yellow-500">
+            Offline – showing the pantry saved on this device. You can edit it again when you’re back online.
+          </p>
+        ) : showAdd ? (
           <div className="rounded-2xl bg-gray-900 border border-gray-800 p-5">
             <h2 className="text-sm font-semibold text-gray-300 mb-4">New ingredient</h2>
             <ItemForm
@@ -103,9 +120,26 @@ export default function Pantry() {
           <p className="text-sm text-red-400 text-center py-8">Failed to load pantry. Check your connection.</p>
         )}
 
-        <ExpiryAlert items={items} />
+        <ExpiryAlert items={items} readOnly={!online} />
 
-        {!isLoading && !isError && items.length === 0 && (
+        {pending.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-yellow-600 mb-2 px-1">
+              From your shopping list · {online ? 'syncing…' : 'added when you’re back online'}
+            </h2>
+            <div className="flex flex-col gap-2">
+              {pending.map((item) => (
+                <div key={item.id} className="rounded-xl bg-gray-900 border border-dashed border-gray-700 px-4 py-3">
+                  <span className="text-sm font-medium text-gray-300">{capitalize(item.name)}</span>
+                  <span className="ml-2 text-sm text-gray-500">{formatQuantity(item.quantity, item.unit)}</span>
+                  <ExpiryBadge date={item.expiryDate} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!isLoading && !isError && items.length === 0 && !pending.length && (
           <div className="rounded-2xl bg-gray-900 border border-gray-800 p-10 text-center">
             <p className="font-medium text-gray-300">Your pantry is empty</p>
             <p className="text-sm mt-1 text-gray-500">Add your first ingredient above</p>
@@ -142,7 +176,7 @@ export default function Pantry() {
                         <span className="ml-2 text-sm text-gray-500">{formatQuantity(item.quantity, item.unit)}</span>
                         <ExpiryBadge date={item.expiryDate} />
                       </div>
-                      <div className="flex gap-2">
+                      {online && <div className="flex gap-2">
                         <button
                           onClick={() => { setShowAdd(false); setEditingItem(item); }}
                           className="rounded-lg px-3 py-1 text-xs font-medium text-gray-400 border border-gray-700 hover:bg-gray-800 transition"
@@ -156,7 +190,7 @@ export default function Pantry() {
                         >
                           Remove
                         </button>
-                      </div>
+                      </div>}
                     </div>
                   )}
                 </div>

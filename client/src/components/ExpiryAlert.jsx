@@ -9,7 +9,7 @@ const SOON_DAYS = 3;
 const names = (items) => items.map((i) => capitalize(i.name)).join(', ');
 const whenText = (days) => (days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`);
 
-export default function ExpiryAlert({ items }) {
+export default function ExpiryAlert({ items, readOnly = false }) {
   const qc = useQueryClient();
   const [confirming, setConfirming] = useState(false);
 
@@ -34,7 +34,7 @@ export default function ExpiryAlert({ items }) {
           <p className="text-sm text-red-400">
             <span className="font-semibold">{expired.length} expired:</span> {names(expired)}
           </p>
-          {confirming ? (
+          {readOnly ? null : confirming ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-gray-300">Remove {expired.length} item{expired.length === 1 ? '' : 's'} from your pantry?</span>
               <button

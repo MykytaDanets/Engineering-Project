@@ -14,9 +14,69 @@ const router = express.Router();
 router.use(authMiddleware, requirePremium);
 
 const MAX_ITEMS = 300;
+const MAX_OPS = 500;
+const MANUAL_AISLE = 'Added by you';
+const OBJECT_ID = /^[a-f\d]{24}$/i;
 
 async function findList(userId) {
   return (await ShoppingList.findOne({ userId })) ?? new ShoppingList({ userId, items: [] });
+}
+
+function newItem(body) {
+  const name = String(body.name ?? '').trim();
+  const quantity = Number(body.quantity ?? 1);
+  const unit = body.unit ?? 'pcs';
+  if (!name) return { error: 'Name is required' };
+  if (!(quantity > 0)) return { error: 'Enter a valid quantity' };
+  if (!UNITS.includes(unit)) return { error: 'Invalid unit' };
+  return { item: { name, quantity, unit, aisle: MANUAL_AISLE, manual: true } };
+}
+
+const findItem = (list, id) => (OBJECT_ID.test(id) ? list.items.id(id) : null);
+
+function moveToPantry(list, pantry, items) {
+  let moved = 0;
+  for (const item of items) {
+    const id = String(item.id);
+    if (!item.add || validateItem(item) || pantry.items.some((p) => p.fromListItem === id)) continue;
+    pantry.items.push({
+      name: capitalize(item.name.trim()),
+      quantity: Number(item.quantity),
+      unit: item.unit,
+      category: item.category,
+      expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
+      fromListItem: id,
+    });
+    moved++;
+  }
+  const done = new Set(items.map((i) => String(i.id)));
+  list.items = list.items.filter((i) => !done.has(i._id.toString()));
+  return moved;
+}
+
+function applyOp(list, op, pantry) {
+  switch (op?.type) {
+    case 'add': {
+      const id = op.item?._id;
+      if (!OBJECT_ID.test(id) || list.items.id(id) || list.items.length >= MAX_ITEMS) return;
+      const { item } = newItem(op.item);
+      if (item) list.items.push({ ...item, _id: id });
+      return;
+    }
+    case 'check': {
+      const item = findItem(list, op.id);
+      if (item) item.checked = Boolean(op.checked);
+      return;
+    }
+    case 'remove':
+      findItem(list, op.id)?.deleteOne();
+      return;
+    case 'clearChecked':
+      list.items = list.items.filter((i) => !i.checked);
+      return;
+    case 'toPantry':
+      if (Array.isArray(op.items)) moveToPantry(list, pantry, op.items.slice(0, MAX_ITEMS));
+  }
 }
 
 // GET /api/shopping
@@ -57,19 +117,33 @@ router.post('/generate', async (req, res) => {
 
 // POST /api/shopping/items
 router.post('/items', async (req, res) => {
-  const name = String(req.body.name ?? '').trim();
-  const quantity = Number(req.body.quantity ?? 1);
-  const unit = req.body.unit ?? 'pcs';
-  if (!name) return res.status(400).json({ message: 'Name is required' });
-  if (!(quantity > 0)) return res.status(400).json({ message: 'Enter a valid quantity' });
-  if (!UNITS.includes(unit)) return res.status(400).json({ message: 'Invalid unit' });
+  const { item, error } = newItem(req.body);
+  if (error) return res.status(400).json({ message: error });
 
   try {
     const list = await findList(req.userId);
     if (list.items.length >= MAX_ITEMS) return res.status(400).json({ message: `At most ${MAX_ITEMS} items` });
-    list.items.push({ name, quantity, unit, aisle: 'Added by you', manual: true });
+    list.items.push(item);
     await list.save();
     res.status(201).json(list);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/shopping/sync
+router.post('/sync', async (req, res) => {
+  const { ops } = req.body;
+  if (!Array.isArray(ops) || ops.length > MAX_OPS) return res.status(400).json({ message: 'Invalid changes' });
+
+  try {
+    const list = await findList(req.userId);
+    const pantry = ops.some((op) => op?.type === 'toPantry')
+      ? (await Pantry.findOne({ userId: req.userId })) ?? new Pantry({ userId: req.userId, items: [] })
+      : null;
+    ops.forEach((op) => applyOp(list, op, pantry));
+    await Promise.all([list.save(), pantry?.save()]);
+    res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -125,20 +199,9 @@ router.post('/to-pantry', async (req, res) => {
     if (!list) return res.status(404).json({ message: 'Shopping list not found' });
 
     const pantry = (await Pantry.findOne({ userId: req.userId })) ?? new Pantry({ userId: req.userId, items: [] });
-    for (const item of toAdd) {
-      pantry.items.push({
-        name: capitalize(item.name.trim()),
-        quantity: Number(item.quantity),
-        unit: item.unit,
-        category: item.category,
-        expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
-      });
-    }
-
-    const done = new Set(items.map((i) => String(i.id)));
-    list.items = list.items.filter((i) => !done.has(i._id.toString()));
+    const moved = moveToPantry(list, pantry, items);
     await Promise.all([pantry.save(), list.save()]);
-    res.json({ list, moved: toAdd.length });
+    res.json({ list, moved });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

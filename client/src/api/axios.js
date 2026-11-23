@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isUnreachable, setReachable } from './connection';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api',
@@ -9,5 +10,16 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+api.interceptors.response.use(
+  (res) => {
+    setReachable(true);
+    return res;
+  },
+  (err) => {
+    if (err.code !== 'ERR_CANCELED') setReachable(!isUnreachable(err));
+    return Promise.reject(err);
+  }
+);
 
 export default api;

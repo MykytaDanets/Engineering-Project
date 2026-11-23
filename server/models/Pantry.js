@@ -6,6 +6,7 @@ const itemSchema = new mongoose.Schema({
   unit: { type: String, required: true, trim: true },
   category: { type: String, required: true, trim: true },
   expiryDate: { type: Date, default: null },
+  fromListItem: { type: String },//shopping list item id
 });
 
 const pantrySchema = new mongoose.Schema(

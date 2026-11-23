@@ -1,7 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '../context/AuthContext';
 import { usePlan } from '../hooks/usePlan';
+import { useOnline } from '../hooks/useOnline';
+import { db, clearOfflineData } from '../offline/db';
 
 const link = ({ isActive }) =>
   `px-3 py-1.5 rounded-lg text-sm font-medium transition ${
@@ -15,8 +18,12 @@ export default function NavBar() {
   const { data: plan, isPremium } = usePlan();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const online = useOnline();
+  const unsynced = useLiveQuery(() => db.outbox.count(), [], 0);
 
-  function handleLogout() {
+  async function handleLogout() {
+    if (unsynced && !window.confirm(`${unsynced} shopping list change${unsynced === 1 ? " hasn't" : "s haven't"} synced yet and will be lost. Log out anyway?`)) return;
+    await clearOfflineData();
     logout();
     qc.clear();
     navigate('/login');
@@ -35,6 +42,9 @@ export default function NavBar() {
           <NavLink to="/pricing" className={link}>{isPremium ? 'Subscription' : 'Upgrade'}</NavLink>
         </div>
         <div className="flex items-center gap-3">
+          {!online && (
+            <span className="rounded-full bg-yellow-900/50 px-2 py-0.5 text-xs font-semibold text-yellow-500">Offline</span>
+          )}
           {isPremium ? (
             <span className="rounded-full bg-green-900/50 px-2 py-0.5 text-xs font-semibold text-green-600">Premium</span>
           ) : plan?.remaining?.searches != null && (

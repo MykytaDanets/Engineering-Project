@@ -2,10 +2,11 @@ import { Link } from 'react-router-dom';
 import { usePlan } from '../hooks/usePlan';
 
 export default function PremiumGate({ feature, children }) {
-  const { isPremium, isLoading } = usePlan();
+  const { isPremium, isLoading, isError } = usePlan();
 
   if (isLoading) return <p className="text-sm text-gray-500 text-center py-8">Loading…</p>;
   if (isPremium) return children;
+  if (isError) return <p className="text-sm text-red-400 text-center py-8">Could not check your plan. Check your connection and try again.</p>;
 
   return (
     <div className="rounded-2xl bg-gray-900 border border-green-900 p-8 flex flex-col items-center gap-3 text-center">

@@ -1,20 +1,47 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import NavBar from '../components/NavBar';
 import PremiumGate from '../components/PremiumGate';
 import BoughtReview from '../components/BoughtReview';
-import {
-  getShoppingList, generateShoppingList, addShoppingItem, updateShoppingItem,
-  deleteShoppingItem, clearChecked,
-} from '../api/shopping';
+import { useAuth } from '../context/AuthContext';
+import { useShoppingList } from '../hooks/useShoppingList';
+import { MANUAL_AISLE, objectId, refreshFromPlan } from '../offline/shopping';
+import { isUnreachable } from '../api/connection';
 import { mondayOf, shortDate } from '../utils/week';
 import { formatQuantity, capitalize } from '../utils/format';
 import { UNITS } from '../constants';
 
-const MANUAL_AISLE = 'Added by you';
+const MAX_ITEMS = 300;
 const inputBase = 'rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 outline-none focus:ring-2 focus:ring-green-700';
-const errorText = (err) => err?.response?.data?.message || 'Something went wrong';
+const errorText = (err) => err?.response?.data?.message || err?.message || 'Something went wrong';
+const timeOf = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function SyncStatus({ online, pending, syncing, syncError, syncedAt, onRetry }) {
+  const waiting = pending > 0 ? ` ${plural(pending, 'change')} will sync when you're back online.` : '';
+
+  if (!online || (syncError && isUnreachable(syncError))) {
+    return (
+      <p className="rounded-lg border border-yellow-900 bg-yellow-950/40 px-3 py-2 text-xs text-yellow-500">
+        Offline – showing the list saved on this device{syncedAt ? ` (synced ${timeOf(syncedAt)})` : ''}.{waiting}
+      </p>
+    );
+  }
+  if (syncError) {
+    return (
+      <p className="text-xs text-red-400">
+        Could not sync: {errorText(syncError)}{' '}
+        <button onClick={onRetry} className="text-green-600 hover:text-green-500">Try again</button>
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-gray-600">
+      {syncing || pending ? `Syncing${pending ? ` ${plural(pending, 'change')}` : ''}…` : `Saved on this device · synced ${timeOf(syncedAt)}`}
+    </p>
+  );
+}
 
 function groupByAisle(items) {
   const groups = items.reduce((acc, item) => {
@@ -24,7 +51,7 @@ function groupByAisle(items) {
   return Object.entries(groups).sort(([a], [b]) => (a === MANUAL_AISLE ? -1 : b === MANUAL_AISLE ? 1 : a.localeCompare(b)));
 }
 
-function AddItemForm({ onAdd, pending }) {
+function AddItemForm({ onAdd }) {
   const [form, setForm] = useState({ name: '', quantity: 1, unit: 'pcs' });
 
   function handleSubmit(e) {
@@ -56,7 +83,7 @@ function AddItemForm({ onAdd, pending }) {
       </select>
       <button
         type="submit"
-        disabled={pending || !form.name.trim()}
+        disabled={!form.name.trim()}
         className="rounded-lg bg-green-800 px-4 py-2 text-sm font-semibold text-green-100 hover:bg-green-700 disabled:opacity-50 transition"
       >
         Add
@@ -66,62 +93,71 @@ function AddItemForm({ onAdd, pending }) {
 }
 
 function ShoppingBoard() {
-  const qc = useQueryClient();
-  const { data: list, isLoading, isError } = useQuery({ queryKey: ['shopping'], queryFn: getShoppingList });
-  const setList = (data) => qc.setQueryData(['shopping'], data.list ?? data);
-
-  const add = useMutation({ mutationFn: addShoppingItem, onSuccess: setList });
-  const remove = useMutation({ mutationFn: deleteShoppingItem, onSuccess: setList });
-  const clear = useMutation({ mutationFn: clearChecked, onSuccess: setList });
-  const regenerate = useMutation({ mutationFn: () => generateShoppingList(list?.weekStart || mondayOf()), onSuccess: setList });
+  const { user } = useAuth();
+  const { list, loaded, syncedAt, pending, online, syncing, syncError, queue, sync } = useShoppingList(user.id);
+  const regenerate = useMutation({ mutationFn: () => refreshFromPlan(user.id, list?.weekStart || mondayOf()) });
   const [reviewing, setReviewing] = useState(false);
   const [moved, setMoved] = useState(null);
+  const [localError, setLocalError] = useState(null);
 
-  const toggle = useMutation({
-    mutationFn: (item) => updateShoppingItem(item._id, { checked: !item.checked }),
-    onMutate: async (item) => {
-      await qc.cancelQueries({ queryKey: ['shopping'] });
-      const previous = qc.getQueryData(['shopping']);
-      qc.setQueryData(['shopping'], (old) => ({
-        ...old,
-        items: old.items.map((i) => (i._id === item._id ? { ...i, checked: !i.checked } : i)),
-      }));
-      return { previous };
-    },
-    onError: (_err, _item, context) => qc.setQueryData(['shopping'], context.previous),
-    onSuccess: setList,
-  });
+  const run = (op) => queue(op).catch((err) => setLocalError(err.message));
 
-  if (isLoading) return <p className="text-sm text-gray-500 text-center py-8">Loading list…</p>;
-  if (isError) return <p className="text-sm text-red-400 text-center py-8">Failed to load the shopping list.</p>;
+  if (!loaded || (!list && online && !syncError)) return <p className="text-sm text-gray-500 text-center py-8">Loading list…</p>;
+  if (!list) {
+    return (
+      <div className="rounded-2xl bg-gray-900 border border-gray-800 p-8 text-center flex flex-col items-center gap-2">
+        <p className="font-medium text-gray-300">No list saved on this device yet</p>
+        <p className="text-sm text-gray-500">
+          {online ? errorText(syncError) : 'Open this page once while online and the list will be kept here for offline use.'}
+        </p>
+        {online && <button onClick={sync} className="text-sm text-green-600 hover:text-green-500">Try again</button>}
+      </div>
+    );
+  }
 
   const items = list.items;
   const checked = items.filter((i) => i.checked).length;
-  const errors = [add, remove, clear, regenerate, toggle].filter((m) => m.isError);
+
+  function addItem(item) {
+    if (items.length >= MAX_ITEMS) return setLocalError(`At most ${MAX_ITEMS} items`);
+    setLocalError(null);
+    run({ type: 'add', item: { _id: objectId(), ...item } });
+  }
 
   if (reviewing) {
     return (
       <BoughtReview
         items={items.filter((i) => i.checked)}
+        onMove={queue}
         onCancel={() => setReviewing(false)}
-        onDone={(count) => { setMoved(count); setReviewing(false); }}
+        onDone={(count) => { setMoved({ count, offline: !online }); setReviewing(false); }}
       />
     );
   }
 
   return (
     <div className="flex flex-col gap-5">
+      <SyncStatus online={online} pending={pending} syncing={syncing} syncError={syncError} syncedAt={syncedAt} onRetry={sync} />
+
       {list.weekStart && (
         <p className="text-sm text-gray-500">
           For the week of {shortDate(list.weekStart)}.{' '}
-          <button onClick={() => regenerate.mutate()} disabled={regenerate.isPending} className="text-green-600 hover:text-green-500 disabled:opacity-50">
-            {regenerate.isPending ? 'Updating…' : 'Update from plan'}
-          </button>
+          {online && (
+            <button onClick={() => regenerate.mutate()} disabled={regenerate.isPending} className="text-green-600 hover:text-green-500 disabled:opacity-50">
+              {regenerate.isPending ? 'Updating…' : 'Update from plan'}
+            </button>
+          )}
         </p>
       )}
 
-      <AddItemForm onAdd={(item) => add.mutate(item)} pending={add.isPending} />
-      {errors.map((m, i) => <p key={i} className="text-sm text-red-400">{errorText(m.error)}</p>)}
+      <AddItemForm onAdd={addItem} />
+      {localError && <p className="text-sm text-red-400">{localError}</p>}
+      {regenerate.isError && <p className="text-sm text-red-400">{errorText(regenerate.error)}</p>}
+      {moved?.count > 0 && (
+        <p className="text-sm text-green-600">
+          {plural(moved.count, 'item')} {moved.offline ? 'will be added to your pantry when you’re back online.' : 'added to your pantry.'}
+        </p>
+      )}
 
       {items.length === 0 ? (
         <div className="rounded-2xl bg-gray-900 border border-gray-800 p-10 text-center">
@@ -148,7 +184,7 @@ function ShoppingBoard() {
                     <input
                       type="checkbox"
                       checked={item.checked}
-                      onChange={() => toggle.mutate(item)}
+                      onChange={() => run({ type: 'check', id: item._id, checked: !item.checked })}
                       className="h-5 w-5 shrink-0 accent-green-700 [color-scheme:dark]"
                       aria-label={`Bought ${item.name}`}
                     />
@@ -159,7 +195,7 @@ function ShoppingBoard() {
                         <p className="truncate text-xs text-gray-600">{[item.note, item.recipes.join(', ')].filter(Boolean).join(' · ')}</p>
                       )}
                     </div>
-                    <button onClick={() => remove.mutate(item._id)} className="text-xs text-gray-500 hover:text-red-400" aria-label={`Remove ${item.name}`}>✕</button>
+                    <button onClick={() => run({ type: 'remove', id: item._id })}className="text-xs text-gray-500 hover:text-red-400" aria-label={`Remove ${item.name}`}>✕</button>
                   </div>
                 ))}
               </div>
@@ -172,17 +208,16 @@ function ShoppingBoard() {
               disabled={!checked}
               className="rounded-lg bg-green-800 px-4 py-2 text-sm font-semibold text-green-100 hover:bg-green-700 disabled:opacity-50 transition"
             >
-              Move {checked} ticked to pantry
+              Review {checked} ticked & add to pantry
             </button>
             <button
-              onClick={() => clear.mutate()}
-              disabled={!checked || clear.isPending}
+              onClick={() => run({ type: 'clearChecked' })}
+              disabled={!checked}
               className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 disabled:opacity-50 transition"
             >
               Clear ticked
             </button>
           </div>
-          {moved != null && <p className="text-xs text-green-600">{moved} item{moved === 1 ? '' : 's'} added to your pantry.</p>}
         </>
       )}
     </div>

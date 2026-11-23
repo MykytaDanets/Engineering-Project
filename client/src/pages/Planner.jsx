@@ -9,7 +9,8 @@ import PreferencesPanel from '../components/PreferencesPanel';
 import RecipeModal from '../components/RecipeModal';
 import { SuggestionCard, DragPreview } from '../components/MealCard';
 import { getPlan, addPlanEntry, updatePlanEntry, deletePlanEntry, autofillPlan } from '../api/planner';
-import { generateShoppingList } from '../api/shopping';
+import { refreshFromPlan } from '../offline/shopping';
+import { useAuth } from '../context/AuthContext';
 import { getRecipes } from '../api/recipes';
 import { mondayOf, addDays, shortDate } from '../utils/week';
 import { ONE_HOUR } from '../constants';
@@ -36,6 +37,7 @@ function WeekNav({ week, onChange }) {
 function PlannerBoard() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [week, setWeek] = useState(mondayOf());
   const [dragging, setDragging] = useState(null);
   const [openRecipe, setOpenRecipe] = useState(null);
@@ -55,11 +57,8 @@ function PlannerBoard() {
   const remove = useMutation({ mutationFn: (entry) => deletePlanEntry(week, entry._id), onSuccess: setPlan });
   const autofill = useMutation({ mutationFn: () => autofillPlan(week), onSuccess: setPlan });
   const makeList = useMutation({
-    mutationFn: () => generateShoppingList(week),
-    onSuccess: (list) => {
-      qc.setQueryData(['shopping'], list);
-      navigate('/shopping');
-    },
+    mutationFn: () => refreshFromPlan(user.id, week),
+    onSuccess: () => navigate('/shopping'),
   });
 
   const update = useMutation({
