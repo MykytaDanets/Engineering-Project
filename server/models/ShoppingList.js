@@ -19,7 +19,7 @@ const shoppingListSchema = new mongoose.Schema(
     generatedAt: { type: Date },
     items: [itemSchema],
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
 module.exports = mongoose.model('ShoppingList', shoppingListSchema);

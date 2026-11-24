@@ -3,6 +3,7 @@ const cache = require('./cache');
 
 const BASE_URL = 'https://api.spoonacular.com';
 const SEARCH_RESULTS = 12;
+const TIMEOUT_MS = 20000;
 
 function apiKey() {
   const key = process.env.SPOONACULAR_API_KEY;
@@ -47,6 +48,7 @@ async function searchRecipes(ingredientNames, { diet = '', intolerances = [] } =
       diet: diet || undefined,
       intolerances: intolerances.length ? intolerances.join(',') : undefined,
     },
+    timeout: TIMEOUT_MS,
   });
   const recipes = data.results.map(mapRecipe);
   recipes.forEach((r) => cache.set(`recipe:${r.id}`, r));
@@ -61,6 +63,7 @@ async function getRecipes(ids) {
   if (missing.length) {
     const { data } = await axios.get(`${BASE_URL}/recipes/informationBulk`, {
       params: { apiKey: apiKey(), ids: missing.join(','), includeNutrition: false },
+      timeout: TIMEOUT_MS,
     });
     data.map(mapRecipe).forEach((r) => {
       cache.set(`recipe:${r.id}`, r);
@@ -78,6 +81,7 @@ async function getRecipe(id) {
 
 function spoonacularError(err) {
   if (err.message.includes('SPOONACULAR_API_KEY')) return { status: 503, message: err.message };
+  if (err.code === 'ECONNABORTED') return { status: 504, message: 'Recipe search is slow right now. Try again in a minute.' };
   if ([401, 402].includes(err.response?.status)) return { status: 503, message: 'Invalid or exhausted Spoonacular API key.' };
   if (err.status === 404 || err.response?.status === 404) return { status: 404, message: 'Recipe not found' };
   return { status: 500, message: err.message };

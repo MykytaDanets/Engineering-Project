@@ -1,14 +1,14 @@
 const express = require('express');
 const multer = require('multer');
-const User = require('../models/User');
 const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
-const { consumeUsage, refundUsage } = require('../middleware/plan');
+const { loadScope, consumeUsage, refundUsage } = require('../middleware/plan');
+const { notifyChange } = require('../utils/realtime');
 const { readReceipt, prepareReceipt, learnCorrections } = require('../utils/receipt');
 const { validateItem } = require('../utils/pantryItem');
 
 const router = express.Router();
-router.use(authMiddleware);
+router.use(authMiddleware, loadScope);
 
 const MAX_PHOTO_MB = 8;
 const MAX_ITEMS = 100;
@@ -36,10 +36,9 @@ router.post('/scan', uploadPhoto, async (req, res) => {
     return res.status(400).json({ message: 'Upload a JPEG, PNG or WebP photo of the receipt.' });
   }
 
-  let user, useAi;
+  const { user } = req;
+  let useAi;
   try {
-    user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
     useAi = await consumeUsage(user, 'receipts');
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -83,8 +82,8 @@ router.post('/confirm', async (req, res) => {
   }
 
   try {
-    let pantry = await Pantry.findOne({ userId: req.userId });
-    if (!pantry) pantry = new Pantry({ userId: req.userId, items: [] });
+    let pantry = await Pantry.findOne({ userId: req.dataId });
+    if (!pantry) pantry = new Pantry({ userId: req.dataId, items: [] });
 
     let merged = 0;
     for (const item of items) {
@@ -104,6 +103,7 @@ router.post('/confirm', async (req, res) => {
       }
     }
     await pantry.save();
+    notifyChange(req, 'pantry');
 
     const learned = await learnCorrections(store, items, req.userId);
     res.json({ added: items.length - merged, merged, learned });

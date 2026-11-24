@@ -39,6 +39,7 @@ export default function NavBar() {
           <NavLink to="/recipes" className={link}>Recipes</NavLink>
           <NavLink to="/planner" className={link}>Planner</NavLink>
           <NavLink to="/shopping" className={link}>Shopping</NavLink>
+          <NavLink to="/household" className={link}>Household</NavLink>
           <NavLink to="/pricing" className={link}>{isPremium ? 'Subscription' : 'Upgrade'}</NavLink>
         </div>
         <div className="flex items-center gap-3">

@@ -4,6 +4,7 @@ const MealPlan = require('../models/MealPlan');
 const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
 const { requirePremium } = require('../middleware/plan');
+const { notifyChange } = require('../utils/realtime');
 const { getRecipes, spoonacularError } = require('../utils/spoonacular');
 const { buildShoppingItems } = require('../utils/shopping');
 const { validateItem, capitalize } = require('../utils/pantryItem');
@@ -15,6 +16,7 @@ router.use(authMiddleware, requirePremium);
 
 const MAX_ITEMS = 300;
 const MAX_OPS = 500;
+const MAX_TRIES = 5;//another member saved at the same time
 const MANUAL_AISLE = 'Added by you';
 const OBJECT_ID = /^[a-f\d]{24}$/i;
 
@@ -79,10 +81,23 @@ function applyOp(list, op, pantry) {
   }
 }
 
+
+async function retryOnConflict(work) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await work();
+    } catch (err) {
+      const conflict = err.name === 'VersionError' || err.code === 11000;
+      if (!conflict || attempt >= MAX_TRIES) throw err;
+      await new Promise((resolve) => setTimeout(resolve, attempt * (20 + Math.random() * 80)));
+    }
+  }
+}
+
 // GET /api/shopping
 router.get('/', async (req, res) => {
   try {
-    res.json(await findList(req.userId));
+    res.json(await findList(req.dataId));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -94,20 +109,23 @@ router.post('/generate', async (req, res) => {
   if (!week) return res.status(400).json({ message: 'Invalid week' });
 
   try {
-    const plan = await MealPlan.findOne({ userId: req.userId, weekStart: week });
+    const plan = await MealPlan.findOne({ userId: req.dataId, weekStart: week });
     if (!plan?.entries.length) return res.status(400).json({ message: 'Plan some meals for this week first.' });
 
-    const [recipes, pantry, list] = await Promise.all([
+    const [recipes, pantry] = await Promise.all([
       getRecipes(plan.entries.map((e) => e.recipeId)),
-      Pantry.findOne({ userId: req.userId }),
-      findList(req.userId),
+      Pantry.findOne({ userId: req.dataId }),
     ]);
-
     const generated = buildShoppingItems(plan, recipes, pantry?.items ?? []);
-    list.items = [...generated, ...list.items.filter((i) => i.manual)];
-    list.weekStart = week;
-    list.generatedAt = new Date();
-    await list.save();
+
+    const list = await retryOnConflict(async () => {
+      const list = await findList(req.dataId);
+      list.items = [...generated, ...list.items.filter((i) => i.manual)];
+      list.weekStart = week;
+      list.generatedAt = new Date();
+      return list.save();
+    });
+    notifyChange(req, 'shopping');
     res.json(list);
   } catch (err) {
     const { status, message } = spoonacularError(err);
@@ -115,104 +133,24 @@ router.post('/generate', async (req, res) => {
   }
 });
 
-// POST /api/shopping/items
-router.post('/items', async (req, res) => {
-  const { item, error } = newItem(req.body);
-  if (error) return res.status(400).json({ message: error });
-
-  try {
-    const list = await findList(req.userId);
-    if (list.items.length >= MAX_ITEMS) return res.status(400).json({ message: `At most ${MAX_ITEMS} items` });
-    list.items.push(item);
-    await list.save();
-    res.status(201).json(list);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
 // POST /api/shopping/sync
 router.post('/sync', async (req, res) => {
   const { ops } = req.body;
   if (!Array.isArray(ops) || ops.length > MAX_OPS) return res.status(400).json({ message: 'Invalid changes' });
+  const toPantry = ops.some((op) => op?.type === 'toPantry');
 
   try {
-    const list = await findList(req.userId);
-    const pantry = ops.some((op) => op?.type === 'toPantry')
-      ? (await Pantry.findOne({ userId: req.userId })) ?? new Pantry({ userId: req.userId, items: [] })
-      : null;
-    ops.forEach((op) => applyOp(list, op, pantry));
-    await Promise.all([list.save(), pantry?.save()]);
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// PATCH /api/shopping/items/:itemId
-router.patch('/items/:itemId', async (req, res) => {
-  try {
-    const list = await ShoppingList.findOne({ userId: req.userId });
-    const item = list?.items.id(req.params.itemId);
-    if (!item) return res.status(404).json({ message: 'Item not found' });
-
-    if (req.body.checked != null) item.checked = Boolean(req.body.checked);
-    if (req.body.quantity != null) {
-      const quantity = Number(req.body.quantity);
-      if (!(quantity > 0)) return res.status(400).json({ message: 'Enter a valid quantity' });
-      item.quantity = quantity;
-    }
-
-    await list.save();
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// DELETE /api/shopping/items/:itemId
-router.delete('/items/:itemId', async (req, res) => {
-  try {
-    const list = await ShoppingList.findOne({ userId: req.userId });
-    const item = list?.items.id(req.params.itemId);
-    if (!item) return res.status(404).json({ message: 'Item not found' });
-    item.deleteOne();
-    await list.save();
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/shopping/to-pantry
-router.post('/to-pantry', async (req, res) => {
-  const { items } = req.body;
-  if (!Array.isArray(items) || !items.length) return res.status(400).json({ message: 'Tick the items you bought first.' });
-  const toAdd = items.filter((i) => i.add);
-  for (const item of toAdd) {
-    const error = validateItem(item);
-    if (error) return res.status(400).json({ message: error });
-  }
-
-  try {
-    const list = await ShoppingList.findOne({ userId: req.userId });
-    if (!list) return res.status(404).json({ message: 'Shopping list not found' });
-
-    const pantry = (await Pantry.findOne({ userId: req.userId })) ?? new Pantry({ userId: req.userId, items: [] });
-    const moved = moveToPantry(list, pantry, items);
-    await Promise.all([pantry.save(), list.save()]);
-    res.json({ list, moved });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/shopping/clear-checked
-router.post('/clear-checked', async (req, res) => {
-  try {
-    const list = await findList(req.userId);
-    list.items = list.items.filter((i) => !i.checked);
-    await list.save();
+    const list = await retryOnConflict(async () => {
+      const list = await findList(req.dataId);
+      const pantry = toPantry
+        ? (await Pantry.findOne({ userId: req.dataId })) ?? new Pantry({ userId: req.dataId, items: [] })
+        : null;
+      ops.forEach((op) => applyOp(list, op, pantry));
+      await list.save();
+      await pantry?.save();
+      return list;
+    });
+    if (ops.length) notifyChange(req, 'shopping', ...(toPantry ? ['pantry'] : []));
     res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });

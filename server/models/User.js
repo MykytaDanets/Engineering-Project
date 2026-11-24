@@ -28,6 +28,9 @@ const userSchema = new mongoose.Schema(
     cancelAtPeriodEnd: { type: Boolean, default: false },
     graceUntil: { type: Date },
 
+    householdId: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', default: null },
+    emailReminders: { type: Boolean, default: true },
+
     preferences: {
       diet: { type: String, default: '' },
       intolerances: { type: [String], default: [] },

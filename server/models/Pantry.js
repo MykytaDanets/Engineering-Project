@@ -7,6 +7,7 @@ const itemSchema = new mongoose.Schema({
   category: { type: String, required: true, trim: true },
   expiryDate: { type: Date, default: null },
   fromListItem: { type: String },//shopping list item id
+  reminded: { type: Boolean, default: false },//expiry email sent
 });
 
 const pantrySchema = new mongoose.Schema(

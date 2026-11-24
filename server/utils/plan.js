@@ -2,10 +2,12 @@ const { FREE_LIMITS } = require('../config/plans');
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 
-function isPremium(user) {
+function ownPremium(user) {
   if (ACTIVE_STATUSES.includes(user.subscriptionStatus)) return true;
   return Boolean(user.graceUntil && user.graceUntil > new Date());
 }
+
+const isPremium = (user) => ownPremium(user) || Boolean(user.$locals?.householdPremium);
 
 const today = () => new Date().toISOString().slice(0, 10);
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -25,6 +27,7 @@ function remaining(user, kind) {
 function planSummary(user) {
   return {
     plan: isPremium(user) ? 'premium' : 'free',
+    viaHousehold: !ownPremium(user) && isPremium(user),
     subscriptionStatus: user.subscriptionStatus,
     currentPeriodEnd: user.currentPeriodEnd ?? null,
     cancelAtPeriodEnd: user.cancelAtPeriodEnd,
@@ -38,4 +41,4 @@ function planSummary(user) {
   };
 }
 
-module.exports = { isPremium, planSummary, USAGE };
+module.exports = { isPremium, ownPremium, planSummary, USAGE };

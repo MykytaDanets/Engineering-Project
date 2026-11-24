@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import NavBar from '../components/NavBar';
 import { usePlan, useCheckout, usePortal, useCancelSubscription } from '../hooks/usePlan';
 
@@ -82,6 +82,13 @@ export default function Pricing() {
 
         {isLoading ? (
           <p className="text-sm text-gray-500">Loading your plan…</p>
+        ) : plan?.viaHousehold ? (
+          <div className="rounded-2xl bg-gray-900 border border-green-900 p-5">
+            <p className="text-sm text-gray-300">
+              You have <span className="font-semibold text-green-600">Premium</span> through your{' '}
+              <Link to="/household" className="text-green-600 hover:text-green-500">household</Link>. Nothing to pay.
+            </p>
+          </div>
         ) : isPremium ? (
           <div className="rounded-2xl bg-gray-900 border border-green-900 p-5 flex flex-col gap-3">
             <p className="text-sm text-gray-300">

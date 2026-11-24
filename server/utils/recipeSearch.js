@@ -1,9 +1,10 @@
 const cache = require('./cache');
-const { consumeUsage, limitReached } = require('../middleware/plan');
+const { consumeUsage, refundUsage, limitReached } = require('../middleware/plan');
 const { searchRecipes } = require('./spoonacular');
 const { expiresSoon } = require('./matching');
 
 const EXPIRING_RESULTS = 8;
+const EXPIRING_WAIT_MS = 3000;//after that finishes in the background and lands in the cache
 
 class LimitError extends Error {
   constructor(body) {
@@ -12,7 +13,9 @@ class LimitError extends Error {
   }
 }
 
-const uniqueNames = (items) => [...new Set(items.map((i) => i.name.toLowerCase().trim()))].sort();
+const merge = (focused, main) => [...new Map([...focused, ...main].map((r) => [r.id, r])).values()];
+
+const uniqueNames =(items) => [...new Set(items.map((i) => i.name.toLowerCase().trim()))].sort();
 
 function searchKey(names, expiring, prefs) {
   const intolerances = [...(prefs.intolerances ?? [])].sort().join(',');
@@ -30,13 +33,28 @@ async function candidateRecipes(user, pantryItems) {
 
   if (!(await consumeUsage(user, 'searches'))) throw new LimitError(limitReached('searches'));
 
-  const [main, focused] = await Promise.all([
-    searchRecipes(names, prefs),
-    expiring.length ? searchRecipes(expiring, prefs, EXPIRING_RESULTS) : [],
-  ]);
-  const recipes = [...new Map([...focused, ...main].map((r) => [r.id, r])).values()];
-  cache.set(key, recipes);
-  return { recipes, fromCache: false };
+  const focusedSearch = expiring.length ? searchRecipes(expiring, prefs, EXPIRING_RESULTS) : Promise.resolve([]);
+  focusedSearch.catch(() => {});
+
+  let main;
+  try {
+    main = await searchRecipes(names, prefs);
+  } catch (err) {
+    await refundUsage(user, 'searches');
+    throw err;
+  }
+
+  const timeout = new Promise((resolve) => setTimeout(resolve, EXPIRING_WAIT_MS, null));
+  const focused = await Promise.race([focusedSearch.catch(() => []), timeout]);
+  if (focused) {
+    const recipes = merge(focused, main);
+    cache.set(key, recipes);
+    return { recipes, fromCache: false };
+  }
+
+  cache.set(key, main);
+  focusedSearch.then((late) => cache.set(key, merge(late, main))).catch(() => {});
+  return { recipes: main, fromCache: false, partial: true };
 }
 
 module.exports = { candidateRecipes, LimitError };

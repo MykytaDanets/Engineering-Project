@@ -34,6 +34,9 @@ export default function Recipes() {
             {fromCache && (
               <p className="text-xs text-gray-500 mt-0.5">Cached results · updates hourly</p>
             )}
+            {data?.partial && (
+              <p className="text-xs text-yellow-600 mt-0.5">Recipes for your expiring items are still coming – press Refresh in a moment.</p>
+            )}
           </div>
           <button
             onClick={() => refetch()}

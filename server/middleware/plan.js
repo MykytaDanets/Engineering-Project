@@ -1,6 +1,7 @@
 const User = require('../models/User');
+const Household = require('../models/Household');
 const { FREE_LIMITS } = require('../config/plans');
-const { isPremium, USAGE } = require('../utils/plan');
+const { isPremium, ownPremium, USAGE } = require('../utils/plan');
 
 async function loadUser(req, res) {
   if (req.user) return req.user;
@@ -9,8 +10,26 @@ async function loadUser(req, res) {
     res.status(404).json({ message: 'User not found' });
     return null;
   }
+
+  const household = user.householdId ? await Household.findById(user.householdId) : null;
+  if (household && !ownPremium(user)) {
+    const others = await User.find({ _id: { $in: household.members.map((m) => m.userId) } })
+      .select('subscriptionStatus graceUntil');
+    user.$locals.householdPremium = others.some(ownPremium);
+  }
+
   req.user = user;
+  req.household = household;
+  req.dataId = household?._id ?? user._id;
   return user;
+}
+
+async function loadScope(req, res, next) {
+  try {
+    if (await loadUser(req, res)) next();
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 }
 
 async function requirePremium(req, res, next) {
@@ -67,4 +86,4 @@ function limitReached(kind) {
   };
 }
 
-module.exports = { requirePremium, consumeUsage, refundUsage, limitReached };
+module.exports = { loadUser, loadScope, requirePremium, consumeUsage, refundUsage, limitReached };

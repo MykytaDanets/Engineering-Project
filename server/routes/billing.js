@@ -3,6 +3,7 @@ const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 const stripe = require('../utils/stripe');
 const { isPremium, planSummary } = require('../utils/plan');
+const { loadUser } = require('../middleware/plan');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -19,8 +20,8 @@ function sendError(res, err) {
 // GET /api/billing/status
 router.get('/status', async (req, res) => {
   try {
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await loadUser(req, res);
+    if (!user) return;
     res.json(planSummary(user));
   } catch (err) {
     res.status(500).json({ message: err.message });

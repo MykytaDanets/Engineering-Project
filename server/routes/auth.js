@@ -74,4 +74,20 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// PATCH /api/auth/me
+router.patch('/me', authMiddleware, async (req, res) => {
+  if (typeof req.body.emailReminders !== 'boolean') return res.status(400).json({ message: 'Nothing to update' });
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { emailReminders: req.body.emailReminders } },
+      { returnDocument: 'after' }
+    ).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

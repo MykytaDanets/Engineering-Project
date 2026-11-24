@@ -1,0 +1,21 @@
+name: Expiry reminders
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # every day 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Send expiry reminder emails
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          JOB_SECRET: ${{ secrets.JOB_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --max-time 240 --retry 3 --retry-delay 30 --retry-all-errors \
+            -X POST "$API_URL/api/jobs/expiry-reminders" \
+            -H "Authorization: Bearer $JOB_SECRET"

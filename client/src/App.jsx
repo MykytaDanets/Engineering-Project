@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './queryClient';
 import SyncManager from './components/SyncManager';
+import RealtimeManager from './components/RealtimeManager';
+import Household from './pages/Household';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -28,6 +30,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SyncManager />
+        <RealtimeManager />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
@@ -58,6 +61,10 @@ export default function App() {
             <Route
               path="/shopping"
               element={<ProtectedRoute><Shopping /></ProtectedRoute>}
+            />
+            <Route
+              path="/household"
+              element={<ProtectedRoute><Household /></ProtectedRoute>}
             />
             <Route
               path="/pricing"

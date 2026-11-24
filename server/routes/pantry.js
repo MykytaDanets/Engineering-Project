@@ -1,9 +1,11 @@
 const express = require('express');
 const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
+const { loadScope } = require('../middleware/plan');
+const { notifyChange } = require('../utils/realtime');
 
 const router = express.Router();
-router.use(authMiddleware);
+router.use(authMiddleware, loadScope);
 
 async function getOrCreatePantry(userId) {
   let pantry = await Pantry.findOne({ userId });
@@ -14,7 +16,7 @@ async function getOrCreatePantry(userId) {
 // GET /api/pantry
 router.get('/', async (req, res) => {
   try {
-    const pantry = await getOrCreatePantry(req.userId);
+    const pantry = await getOrCreatePantry(req.dataId);
     res.json(pantry.items);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -38,9 +40,10 @@ router.post('/items', async (req, res) => {
     return res.status(400).json({ message: 'Invalid expiry date' });
   }
   try {
-    const pantry = await getOrCreatePantry(req.userId);
+    const pantry = await getOrCreatePantry(req.dataId);
     pantry.items.push({ name, quantity, unit, category, expiryDate });
     await pantry.save();
+    notifyChange(req, 'pantry');
     const added = pantry.items[pantry.items.length - 1];
     res.status(201).json(added);
   } catch (err) {
@@ -52,7 +55,7 @@ router.post('/items', async (req, res) => {
 router.put('/items/:itemId', async (req, res) => {
   const { name, quantity, unit, category } = req.body;
   try {
-    const pantry = await Pantry.findOne({ userId: req.userId });
+    const pantry = await Pantry.findOne({ userId: req.dataId });
     if (!pantry) return res.status(404).json({ message: 'Pantry not found' });
 
     const item = pantry.items.id(req.params.itemId);
@@ -65,10 +68,12 @@ router.put('/items/:itemId', async (req, res) => {
     if (req.body.expiryDate !== undefined) {
       const expiryDate = parseExpiry(req.body.expiryDate);
       if (expiryDate === undefined) return res.status(400).json({ message: 'Invalid expiry date' });
+      if (expiryDate?.getTime() !== item.expiryDate?.getTime()) item.reminded = false;
       item.expiryDate = expiryDate;
     }
 
     await pantry.save();
+    notifyChange(req, 'pantry');
     res.json(item);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -80,13 +85,14 @@ router.post('/items/remove', async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ message: 'No items selected' });
   try {
-    const pantry = await Pantry.findOne({ userId: req.userId });
+    const pantry = await Pantry.findOne({ userId: req.dataId });
     if (!pantry) return res.status(404).json({ message: 'Pantry not found' });
 
     const remove = new Set(ids.map(String));
     const before = pantry.items.length;
     pantry.items = pantry.items.filter((i) => !remove.has(i._id.toString()));
     await pantry.save();
+    notifyChange(req, 'pantry');
     res.json({ removed: before - pantry.items.length });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -96,7 +102,7 @@ router.post('/items/remove', async (req, res) => {
 // DELETE /api/pantry/items/:itemId
 router.delete('/items/:itemId', async (req, res) => {
   try {
-    const pantry = await Pantry.findOne({ userId: req.userId });
+    const pantry = await Pantry.findOne({ userId: req.dataId });
     if (!pantry) return res.status(404).json({ message: 'Pantry not found' });
 
     const item = pantry.items.id(req.params.itemId);
@@ -104,6 +110,7 @@ router.delete('/items/:itemId', async (req, res) => {
 
     item.deleteOne();
     await pantry.save();
+    notifyChange(req, 'pantry');
     res.json({ message: 'Item removed' });
   } catch (err) {
     res.status(500).json({ message: err.message });

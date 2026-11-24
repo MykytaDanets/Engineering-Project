@@ -3,6 +3,7 @@ const MealPlan = require('../models/MealPlan');
 const Pantry = require('../models/Pantry');
 const authMiddleware = require('../middleware/auth');
 const { requirePremium } = require('../middleware/plan');
+const { notifyChange } = require('../utils/realtime');
 const { candidateRecipes, LimitError } = require('../utils/recipeSearch');
 const { rankRecipes } = require('../utils/matching');
 const { spoonacularError } = require('../utils/spoonacular');
@@ -63,7 +64,7 @@ router.get('/', async (req, res) => {
   const week = readWeek(req, res);
   if (!week) return;
   try {
-    res.json(await findPlan(req.userId, week));
+    res.json(await findPlan(req.dataId, week));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -82,10 +83,11 @@ router.post('/entries', async (req, res) => {
   if (!Number.isInteger(Number(recipeId)) || !title) return res.status(400).json({ message: 'Recipe id and title are required' });
 
   try {
-    const plan = await findPlan(req.userId, week);
+    const plan = await findPlan(req.dataId, week);
     if (perDay(plan, day) >= MAX_PER_DAY) return res.status(400).json({ message: `At most ${MAX_PER_DAY} meals per day` });
     plan.entries.push({ day, recipeId: Number(recipeId), title, image, servings, readyInMinutes });
     await plan.save();
+    notifyChange(req, 'planner');
     res.status(201).json(plan);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -97,7 +99,7 @@ router.patch('/entries/:entryId', async (req, res) => {
   const week = readWeek(req, res);
   if (!week) return;
   try {
-    const plan = await MealPlan.findOne({ userId: req.userId, weekStart: week });
+    const plan = await MealPlan.findOne({ userId: req.dataId, weekStart: week });
     const entry = plan?.entries.id(req.params.entryId);
     if (!entry) return res.status(404).json({ message: 'Meal not found' });
 
@@ -116,6 +118,7 @@ router.patch('/entries/:entryId', async (req, res) => {
     }
 
     await plan.save();
+    notifyChange(req, 'planner');
     res.json(plan);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -127,11 +130,12 @@ router.delete('/entries/:entryId', async (req, res) => {
   const week = readWeek(req, res);
   if (!week) return;
   try {
-    const plan = await MealPlan.findOne({ userId: req.userId, weekStart: week });
+    const plan = await MealPlan.findOne({ userId: req.dataId, weekStart: week });
     const entry = plan?.entries.id(req.params.entryId);
     if (!entry) return res.status(404).json({ message: 'Meal not found' });
     entry.deleteOne();
     await plan.save();
+    notifyChange(req, 'planner');
     res.json(plan);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -144,11 +148,11 @@ router.post('/autofill', async (req, res) => {
   if (!week) return;
 
   try {
-    const pantry = await Pantry.findOne({ userId: req.userId });
+    const pantry = await Pantry.findOne({ userId: req.dataId });
     const items = pantry?.items ?? [];
     if (!items.length) return res.status(400).json({ message: 'Add ingredients to your pantry first.' });
 
-    const plan = await findPlan(req.userId, week);
+    const plan = await findPlan(req.dataId, week);
     const emptyDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => perDay(plan, d) === 0);
     if (!emptyDays.length) return res.status(400).json({ message: 'Every day already has a meal.' });
 
@@ -165,6 +169,7 @@ router.post('/autofill', async (req, res) => {
     });
 
     await plan.save();
+    notifyChange(req, 'planner');
     res.json({ plan, filled: Math.min(emptyDays.length, ranked.length), emptyDays: emptyDays.length });
   } catch (err) {
     sendError(res, err);

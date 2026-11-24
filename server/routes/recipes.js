@@ -1,13 +1,14 @@
 const express = require('express');
 const Pantry = require('../models/Pantry');
-const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
+const { loadScope } = require('../middleware/plan');
+const { notifyChange } = require('../utils/realtime');
 const { getRecipe, spoonacularError } = require('../utils/spoonacular');
 const { candidateRecipes, LimitError } = require('../utils/recipeSearch');
 const { rankRecipes, cookRecipe } = require('../utils/matching');
 
 const router = express.Router();
-router.use(authMiddleware);
+router.use(authMiddleware, loadScope);
 
 const MAX_SERVINGS = 50;
 
@@ -26,17 +27,14 @@ function validId(req, res) {
 // GET /api/recipes
 router.get('/', async (req, res) => {
   try {
-    const pantry = await Pantry.findOne({ userId: req.userId });
+    const pantry = await Pantry.findOne({ userId: req.dataId });
     const items = pantry?.items ?? [];
     if (items.length === 0) {
       return res.json({ recipes: [], message: 'Add ingredients to your pantry first.' });
     }
 
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const { recipes, fromCache } = await candidateRecipes(user, items);
-    res.json({ recipes: rankRecipes(recipes, items), fromCache });
+    const { recipes, fromCache, partial } = await candidateRecipes(req.user, items);
+    res.json({ recipes: rankRecipes(recipes, items), fromCache, partial });
   } catch (err) {
     sendError(res, err);
   }
@@ -72,12 +70,13 @@ router.post('/:id/cook', async (req, res) => {
   }
 
   try {
-    const pantry = await Pantry.findOne({ userId: req.userId });
+    const pantry = await Pantry.findOne({ userId: req.dataId });
     if (!pantry?.items.length) return res.status(400).json({ message: 'Your pantry is empty.' });
 
     const recipe = await getRecipe(req.params.id);
     const result = cookRecipe(recipe, servings, pantry);
     await pantry.save();
+    notifyChange(req, 'pantry');
     res.json(result);
   } catch (err) {
     sendError(res, err);
